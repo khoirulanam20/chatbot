@@ -19,15 +19,22 @@ class WhatsAppController extends Controller
         Log::debug('WA Webhook received', $payload);
 
         $event = $payload['event'] ?? '';
+        $data  = $payload['data'] ?? [];
 
-        if ($event !== 'message.received') {
+        // Hanya proses event pesan masuk, abaikan event lainnya
+        if ($event !== 'message') {
             return response()->json(['status' => 'ignored']);
         }
 
-        $from    = $payload['from'] ?? '';
-        $message = $payload['message'] ?? '';
+        // Abaikan pesan yang dikirim oleh bot sendiri
+        if (! empty($data['fromMe'])) {
+            return response()->json(['status' => 'ignored_self']);
+        }
 
-        if (empty($from) || empty($message)) {
+        $from    = $data['senderPhone'] ?? $payload['from'] ?? '';
+        $message = $data['content'] ?? $payload['message'] ?? '';
+
+        if (empty($from) || empty($message) || $data['type'] !== 'text') {
             return response()->json(['status' => 'skipped']);
         }
 
@@ -37,21 +44,28 @@ class WhatsAppController extends Controller
         }
         RateLimiter::hit($limiter, 60);
 
-        $instanceId  = $payload['instance_id'] ?? null;
-        $phoneNumber = $payload['phone'] ?? null;
+        $sessionId   = $payload['sessionId'] ?? null;
+        $phoneNumber = $data['senderPhone'] ?? null;
 
         $waInstance = WaInstance::withoutGlobalScopes()
-            ->when($instanceId, fn ($q) => $q->where('instance_id', $instanceId))
-            ->when(! $instanceId && $phoneNumber, fn ($q) => $q->where('phone_number', $phoneNumber))
-            ->where('status', 'active')
+            ->when($sessionId, fn ($q) => $q->where('instance_id', $sessionId))
+            ->when(! $sessionId && $phoneNumber, fn ($q) => $q->where('phone_number', $phoneNumber))
+            ->whereIn('status', ['active', 'inactive'])
             ->first();
 
         if (! $waInstance) {
-            Log::warning('No WA instance found for webhook', ['instance_id' => $instanceId, 'phone' => $phoneNumber]);
+            Log::warning('No WA instance found for webhook', ['sessionId' => $sessionId, 'phone' => $phoneNumber]);
             return response()->json(['status' => 'no_instance']);
         }
 
-        ProcessWhatsAppMessageJob::dispatch($payload, $waInstance->id);
+        // Normalisasi payload untuk job
+        $normalizedPayload = [
+            'from'    => $from,
+            'message' => $message,
+            'name'    => $data['senderName'] ?? $from,
+        ];
+
+        ProcessWhatsAppMessageJob::dispatch($normalizedPayload, $waInstance->id);
 
         return response()->json(['status' => 'queued']);
     }
