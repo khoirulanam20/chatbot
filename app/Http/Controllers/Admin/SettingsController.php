@@ -148,10 +148,12 @@ class SettingsController extends Controller
             return "{$key}=";
         }
 
-        if (preg_match('/^[\w\-.\/@:]+$/', $value) === 1) {
+        // Izinkan: alphanumeric, underscore, hyphen, dot, slash, @, colon tanpa quote
+        if (preg_match('/^[\w\-.\/@:]+$/u', $value) === 1) {
             return "{$key}={$value}";
         }
 
+        // Jika ada spasi, tanda kutip, atau karakter khusus lain, bungkus dengan double quote
         $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
 
         return "{$key}=\"{$escaped}\"";

@@ -20,6 +20,16 @@ class SumopodService
         $this->baseUrl    = rtrim(config('services.sumopod.base_url', 'https://api.openai.com/v1'), '/');
         $this->embedModel = config('services.sumopod.embed_model', 'text-embedding-3-small');
         $this->chatModel  = config('services.sumopod.chat_model', 'gpt-4o');
+
+        // Debug log untuk production (hapus setelah issue selesai)
+        if (app()->environment('production') && $this->apiKey) {
+            Log::debug('SumopodService init', [
+                'key_prefix' => substr($this->apiKey, 0, 6),
+                'key_suffix' => substr($this->apiKey, -4),
+                'key_length' => strlen($this->apiKey),
+                'base_url' => $this->baseUrl,
+            ]);
+        }
     }
 
     /**
