@@ -24,9 +24,24 @@
         <div class="flex gap-3">
             <button @click="
                 const text = document.getElementById('embedCode').innerText;
-                navigator.clipboard.writeText(text);
-                $el.textContent = '✅ Tersalin!';
-                setTimeout(() => $el.textContent = '📋 Salin Kode', 2000);
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        $el.textContent = '✅ Tersalin!';
+                        setTimeout(() => $el.textContent = '📋 Salin Kode', 2000);
+                    });
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    $el.textContent = '✅ Tersalin!';
+                    setTimeout(() => $el.textContent = '📋 Salin Kode', 2000);
+                }
             "
             class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
                 📋 Salin Kode
