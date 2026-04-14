@@ -20,16 +20,6 @@ class SumopodService
         $this->baseUrl    = rtrim(config('services.sumopod.base_url', 'https://api.openai.com/v1'), '/');
         $this->embedModel = config('services.sumopod.embed_model', 'text-embedding-3-small');
         $this->chatModel  = config('services.sumopod.chat_model', 'gpt-4o');
-
-        // Debug log untuk production (hapus setelah issue selesai)
-        if (app()->environment('production') && $this->apiKey) {
-            Log::debug('SumopodService init', [
-                'key_prefix' => substr($this->apiKey, 0, 6),
-                'key_suffix' => substr($this->apiKey, -4),
-                'key_length' => strlen($this->apiKey),
-                'base_url' => $this->baseUrl,
-            ]);
-        }
     }
 
     /**
@@ -42,6 +32,10 @@ class SumopodService
 
         if (! empty($settings['ai_api_key'])) {
             $clone->apiKey = $settings['ai_api_key'];
+            Log::debug('SumopodService: using tenant API key', [
+                'key_prefix' => substr($clone->apiKey, 0, 6),
+                'key_length' => strlen($clone->apiKey),
+            ]);
         }
         if (! empty($settings['ai_base_url'])) {
             $clone->baseUrl = rtrim($settings['ai_base_url'], '/');
@@ -77,7 +71,13 @@ class SumopodService
             ]);
 
         if ($response->failed()) {
-            Log::error('Sumopod embedding failed', ['status' => $response->status(), 'body' => $response->body()]);
+            Log::error('Sumopod embedding failed', [
+                'status'     => $response->status(),
+                'body'       => $response->body(),
+                'base_url'   => $this->baseUrl,
+                'key_prefix' => substr($this->apiKey, 0, 6),
+                'key_length' => strlen($this->apiKey),
+            ]);
             throw new \RuntimeException('Embedding API request failed: ' . $response->status());
         }
 
@@ -95,7 +95,12 @@ class SumopodService
             ]);
 
         if ($response->failed()) {
-            Log::error('Sumopod batch embedding failed', ['status' => $response->status()]);
+            Log::error('Sumopod batch embedding failed', [
+                'status'     => $response->status(),
+                'base_url'   => $this->baseUrl,
+                'key_prefix' => substr($this->apiKey, 0, 6),
+                'key_length' => strlen($this->apiKey),
+            ]);
             throw new \RuntimeException('Batch embedding API request failed');
         }
 
