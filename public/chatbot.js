@@ -260,11 +260,12 @@
     }
   }
 
-  function appendMessage(role, content, messageId) {
+  function appendMessage(role, content, messageId, tempId) {
     const container = document.getElementById('cb-messages');
     const div = document.createElement('div');
     div.className = 'cb-msg cb-msg-' + role;
     if (messageId) div.setAttribute('data-msg-id', messageId);
+    if (tempId) div.setAttribute('data-temp-id', tempId);
     div.innerHTML = parseMarkdown(content);
 
     if (role === 'assistant' && messageId) {
@@ -313,7 +314,8 @@
   }
 
   function sendMessageText(text) {
-    appendMessage('user', text);
+    const tempId = 'temp_' + Date.now();
+    appendMessage('user', text, null, tempId);
     showTyping();
 
     fetch(BASE_URL + '/api/chat/message', {
@@ -327,6 +329,11 @@
         if (data.session_id && !sessionId) {
           sessionId = data.session_id;
           sessionStorage.setItem('cb_session_' + BOT_ID, sessionId);
+        }
+        // Update temp user message dengan ID asli agar polling tidak duplikat
+        if (data.user_message_id) {
+          var tempEl = document.querySelector('[data-temp-id="' + tempId + '"]');
+          if (tempEl) tempEl.setAttribute('data-msg-id', data.user_message_id);
         }
         if (data.message_id) lastMessageId = data.message_id;
         appendMessage('assistant', data.message || 'Maaf, terjadi kesalahan.', data.message_id);

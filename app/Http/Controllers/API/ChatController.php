@@ -66,11 +66,12 @@ class ChatController extends Controller
         $result = $this->ragService->processMessage($conversation, $request->message);
 
         return response()->json([
-            'session_id' => $sessionId,
-            'message'    => $result['content'],
-            'sources'    => $result['sources'] ?? [],
-            'message_id' => $result['message_id'] ?? null,
-            'handoff'    => $result['handoff'] ?? false,
+            'session_id'      => $sessionId,
+            'message'         => $result['content'],
+            'sources'         => $result['sources'] ?? [],
+            'message_id'      => $result['message_id'] ?? null,
+            'user_message_id' => $result['user_message_id'] ?? null,
+            'handoff'         => $result['handoff'] ?? false,
         ]);
     }
 

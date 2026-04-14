@@ -26,16 +26,18 @@ class RAGService
             $chatbot->tenant?->getAiConfig() ?? []
         );
 
-        $this->saveMessage($conversation, 'user', $userMessage);
+        $userMsg = $this->saveMessage($conversation, 'user', $userMessage);
 
         if (! $chatbot->is_active) {
             $reply = $chatbot->getFallbackMessage();
             $this->saveMessage($conversation, 'assistant', $reply);
-            return ['content' => $reply, 'sources' => []];
+            return ['content' => $reply, 'sources' => [], 'user_message_id' => $userMsg->id];
         }
 
         if ($this->containsHandoffTrigger($chatbot, $userMessage)) {
-            return $this->triggerHandoff($conversation, $chatbot, $userMessage);
+            $result = $this->triggerHandoff($conversation, $chatbot, $userMessage);
+            $result['user_message_id'] = $userMsg->id;
+            return $result;
         }
 
         try {
@@ -62,9 +64,10 @@ class RAGService
             $conversation->update(['last_message_at' => now()]);
 
             return [
-                'content'    => $result['content'],
-                'sources'    => $sources,
-                'message_id' => $message->id,
+                'content'         => $result['content'],
+                'sources'         => $sources,
+                'message_id'      => $message->id,
+                'user_message_id' => $userMsg->id,
             ];
         } catch (\Exception $e) {
             Log::error('RAG pipeline error', [
