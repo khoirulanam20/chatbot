@@ -159,6 +159,9 @@
 
         <form method="POST" action="{{ route('admin.settings.update-global') }}" class="space-y-4">
             @csrf
+            @if($tenant)
+            <input type="hidden" name="context_tenant_id" value="{{ $tenant->id }}">
+            @endif
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">API Key Default</label>
                 <div class="flex gap-2" x-data="{ show: false }">

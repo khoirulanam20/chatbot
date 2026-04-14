@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Services\SumopodService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 
 class SettingsController extends Controller
@@ -57,7 +59,8 @@ class SettingsController extends Controller
             'ai_api_key', 'ai_base_url', 'ai_embed_model', 'ai_chat_model',
         ]));
 
-        return back()->with('success', "Pengaturan AI untuk tenant \"{$tenant->name}\" berhasil disimpan!");
+        return $this->redirectToSettingsIndex($tenant)
+            ->with('success', "Pengaturan AI untuk tenant \"{$tenant->name}\" berhasil disimpan!");
     }
 
     public function updateGlobal(Request $request)
@@ -69,27 +72,98 @@ class SettingsController extends Controller
             'sumopod_chat_model'  => 'required|string|max:100',
         ]);
 
-        $envPath    = base_path('.env');
-        $envContent = file_get_contents($envPath);
-
         $updates = [
-            'SUMOPOD_API_KEY'     => $request->sumopod_api_key ?? '',
             'SUMOPOD_BASE_URL'    => $request->sumopod_base_url,
             'SUMOPOD_EMBED_MODEL' => $request->sumopod_embed_model,
             'SUMOPOD_CHAT_MODEL'  => $request->sumopod_chat_model,
         ];
 
-        foreach ($updates as $key => $value) {
-            if (preg_match("/^{$key}=.*/m", $envContent)) {
-                $envContent = preg_replace("/^{$key}=.*/m", "{$key}={$value}", $envContent);
-            } else {
-                $envContent .= "\n{$key}={$value}";
+        // Jangan timpa API key jika field dikosongkan (password sering tidak dikirim / kosong saat tidak diubah)
+        if ($request->filled('sumopod_api_key')) {
+            $updates['SUMOPOD_API_KEY'] = $request->sumopod_api_key;
+        }
+
+        $this->mergeEnvValues(base_path('.env'), $updates);
+
+        Artisan::call('config:clear');
+
+        $tenant = null;
+        if (Auth::user()->isSuperAdmin() && $request->filled('context_tenant_id')) {
+            $tenant = Tenant::find($request->context_tenant_id);
+        }
+
+        return $this->redirectToSettingsIndex($tenant)
+            ->with('success', 'Default global AI berhasil diperbarui!');
+    }
+
+    /**
+     * Gabungkan nilai ke .env baris-per-baris agar aman untuk karakter $ dan lainnya (preg_replace sebelumnya bisa merusak).
+     *
+     * @param  array<string, string>  $updates
+     */
+    private function mergeEnvValues(string $path, array $updates): void
+    {
+        if (! is_readable($path) || ! is_writable($path)) {
+            throw new \RuntimeException('File .env tidak dapat dibaca/ditulis.');
+        }
+
+        $raw = file_get_contents($path);
+        if ($raw === false) {
+            throw new \RuntimeException('Gagal membaca .env');
+        }
+
+        $eol = str_contains($raw, "\r\n") ? "\r\n" : "\n";
+        $lines = preg_split("/\r\n|\n|\r/", $raw);
+        $lines = $lines === false ? [] : $lines;
+
+        $seen = array_fill_keys(array_keys($updates), false);
+
+        foreach ($lines as $i => $line) {
+            foreach ($updates as $key => $value) {
+                if (preg_match('/^' . preg_quote($key, '/') . '=', $line) === 1) {
+                    $lines[$i] = $this->formatEnvLine($key, $value);
+                    $seen[$key] = true;
+                    break;
+                }
             }
         }
 
-        file_put_contents($envPath, $envContent);
+        foreach ($updates as $key => $value) {
+            if (! $seen[$key]) {
+                $lines[] = $this->formatEnvLine($key, $value);
+            }
+        }
 
-        return back()->with('success', 'Default global AI berhasil diperbarui!');
+        $out = implode($eol, $lines);
+        if ($out !== '' && ! str_ends_with($out, "\n")) {
+            $out .= $eol;
+        }
+
+        file_put_contents($path, $out);
+    }
+
+    private function formatEnvLine(string $key, string $value): string
+    {
+        if ($value === '') {
+            return "{$key}=";
+        }
+
+        if (preg_match('/^[\w\-.\/@:]+$/', $value) === 1) {
+            return "{$key}={$value}";
+        }
+
+        $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+
+        return "{$key}=\"{$escaped}\"";
+    }
+
+    private function redirectToSettingsIndex(?Tenant $tenant): RedirectResponse
+    {
+        if (Auth::user()->isSuperAdmin() && $tenant) {
+            return redirect()->route('admin.settings.index', ['tenant_id' => $tenant->id]);
+        }
+
+        return redirect()->route('admin.settings.index');
     }
 
     public function testAI(Request $request)
