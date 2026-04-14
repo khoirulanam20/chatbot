@@ -55,11 +55,24 @@ class WaChateryService
                 ->timeout(10)
                 ->get('/instance/status');
 
-            return [
-                'success' => $response->successful(),
-                'status'  => $response->json('status'),
-                'phone'   => $response->json('phone'),
-            ];
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'status'  => $response->json('status'),
+                    'phone'   => $response->json('phone'),
+                ];
+            }
+
+            $errorMessage = $response->json('message')
+                ?? $response->json('error')
+                ?? 'HTTP ' . $response->status() . ': ' . $response->body();
+
+            Log::warning('WA Chatery test connection failed', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+
+            return ['success' => false, 'error' => $errorMessage];
         } catch (\Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }

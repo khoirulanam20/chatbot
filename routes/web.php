@@ -40,7 +40,7 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
 
     Route::resource('users', UserController::class)->except(['show']);
 
-    Route::resource('wa', WaInstanceController::class)->except(['show']);
+    Route::resource('wa', WaInstanceController::class)->except(['show'])->parameters(['wa' => 'waInstance']);
     Route::post('/wa/{waInstance}/test', [WaInstanceController::class, 'testConnection'])->name('wa.test');
 
     Route::middleware('super_admin')->group(function () {
