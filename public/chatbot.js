@@ -224,11 +224,14 @@
       .then(function (data) {
         if (data.messages && data.messages.length > 0) {
           data.messages.forEach(function (msg) {
-            if (!lastMessageId || msg.id > lastMessageId) {
-              if (!document.querySelector('[data-msg-id="' + msg.id + '"]')) {
-                appendMessage(msg.role, msg.content, msg.id);
-                lastMessageId = msg.id;
-              }
+            // Skip pesan user — sudah ditampilkan secara optimistic saat kirim
+            if (msg.role === 'user') {
+              if (msg.id > (lastMessageId || 0)) lastMessageId = msg.id;
+              return;
+            }
+            if (!document.querySelector('[data-msg-id="' + msg.id + '"]')) {
+              appendMessage(msg.role, msg.content, msg.id);
+              if (msg.id > (lastMessageId || 0)) lastMessageId = msg.id;
             }
           });
         }
