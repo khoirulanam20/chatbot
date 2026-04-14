@@ -11,7 +11,7 @@ class WaChateryService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('services.chatery.base_url', 'https://wa.firstudio.id/api'), '/');
+        $this->baseUrl = rtrim(config('services.chatery.base_url', 'https://wa.firstudio.id/api'), '/') . '/';
     }
 
     public function sendMessage(string $apiKey, string $to, string $message, string $sessionId = 'default'): bool
@@ -23,7 +23,7 @@ class WaChateryService
             ])
                 ->baseUrl($this->baseUrl)
                 ->timeout(15)
-                ->post('/whatsapp/chats/send-text', [
+                ->post('whatsapp/chats/send-text', [
                     'sessionId' => $sessionId,
                     'to'        => $this->normalizePhone($to),
                     'text'      => $message,
@@ -53,7 +53,7 @@ class WaChateryService
             ])
                 ->baseUrl($this->baseUrl)
                 ->timeout(10)
-                ->get('/whatsapp/sessions/' . $sessionId . '/status');
+                ->get('whatsapp/sessions/' . $sessionId . '/status');
 
             if ($response->successful()) {
                 $data = $response->json('data') ?? [];
