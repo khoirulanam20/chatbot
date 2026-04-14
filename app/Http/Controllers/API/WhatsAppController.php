@@ -60,7 +60,7 @@ class WhatsAppController extends Controller
 
         // Normalisasi payload untuk job
         $normalizedPayload = [
-            'from'    => $from,
+            'from'    => $data['chatId'] ?? $from,
             'message' => $message,
             'name'    => $data['senderName'] ?? $from,
         ];

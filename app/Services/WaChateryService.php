@@ -25,8 +25,8 @@ class WaChateryService
                 ->timeout(15)
                 ->post('whatsapp/chats/send-text', [
                     'sessionId' => $sessionId,
-                    'to'        => $this->normalizePhone($to),
-                    'text'      => $message,
+                    'chatId'    => $this->normalizeChatId($to),
+                    'message'   => $message,
                 ]);
 
             if ($response->failed()) {
@@ -82,6 +82,22 @@ class WaChateryService
     public function getWebhookUrl(): string
     {
         return url('/api/webhook/whatsapp');
+    }
+
+    private function normalizeChatId(string $phone): string
+    {
+        // Jika sudah format chatId (mengandung @), kembalikan langsung
+        if (str_contains($phone, '@')) {
+            return $phone;
+        }
+
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+
+        if (str_starts_with($phone, '0')) {
+            $phone = '62' . substr($phone, 1);
+        }
+
+        return $phone . '@s.whatsapp.net';
     }
 
     private function normalizePhone(string $phone): string
