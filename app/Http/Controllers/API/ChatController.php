@@ -82,16 +82,20 @@ class ChatController extends Controller
             return response()->json(['messages' => []]);
         }
 
-        $messages = $conversation->messages()
+        $query = $conversation->messages()
             ->whereIn('role', ['user', 'assistant', 'agent'])
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($msg) => [
-                'id'         => $msg->id,
-                'role'       => $msg->role,
-                'content'    => $msg->content,
-                'created_at' => $msg->created_at->toISOString(),
-            ]);
+            ->orderBy('created_at');
+
+        if ($request->has('after')) {
+            $query->where('id', '>', (int) $request->after);
+        }
+
+        $messages = $query->get()->map(fn ($msg) => [
+            'id'         => $msg->id,
+            'role'       => $msg->role,
+            'content'    => $msg->content,
+            'created_at' => $msg->created_at->toISOString(),
+        ]);
 
         return response()->json(['messages' => $messages]);
     }

@@ -18,6 +18,8 @@
   let sessionId = sessionStorage.getItem('cb_session_' + BOT_ID) || null;
   let isOpen = false;
   let isTyping = false;
+  let lastMessageId = null;
+  let pollingInterval = null;
 
   const STYLES = `
     #cb-widget * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -159,14 +161,79 @@
     if (isOpen) {
       win.classList.remove('cb-hidden');
       bubble.innerHTML = '✕';
-      if (document.getElementById('cb-messages').children.length === 0) {
+      if (sessionId) {
+        loadHistory();
+      } else if (document.getElementById('cb-messages').children.length === 0) {
         showGreeting();
       }
+      startPolling();
       setTimeout(() => document.getElementById('cb-input').focus(), 100);
     } else {
       win.classList.add('cb-hidden');
       bubble.innerHTML = '💬';
+      stopPolling();
     }
+  }
+
+  function loadHistory() {
+    fetch(BASE_URL + '/api/chat/history/' + sessionId, {
+      headers: { 'Accept': 'application/json' },
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        const container = document.getElementById('cb-messages');
+        container.innerHTML = '';
+        lastMessageId = null;
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(function (msg) {
+            appendMessage(msg.role, msg.content, msg.id);
+            lastMessageId = msg.id;
+          });
+        } else {
+          showGreeting();
+        }
+      })
+      .catch(function () {
+        if (document.getElementById('cb-messages').children.length === 0) {
+          showGreeting();
+        }
+      });
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollingInterval = setInterval(function () {
+      if (sessionId && isOpen) {
+        pollNewMessages();
+      }
+    }, 3000);
+  }
+
+  function stopPolling() {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+  }
+
+  function pollNewMessages() {
+    var url = BASE_URL + '/api/chat/history/' + sessionId;
+    if (lastMessageId) url += '?after=' + lastMessageId;
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(function (msg) {
+            if (!lastMessageId || msg.id > lastMessageId) {
+              if (!document.querySelector('[data-msg-id="' + msg.id + '"]')) {
+                appendMessage(msg.role, msg.content, msg.id);
+                lastMessageId = msg.id;
+              }
+            }
+          });
+        }
+      })
+      .catch(function () {});
   }
 
   function showGreeting() {
@@ -197,6 +264,7 @@
     const container = document.getElementById('cb-messages');
     const div = document.createElement('div');
     div.className = 'cb-msg cb-msg-' + role;
+    if (messageId) div.setAttribute('data-msg-id', messageId);
     div.innerHTML = parseMarkdown(content);
 
     if (role === 'assistant' && messageId) {
@@ -260,6 +328,7 @@
           sessionId = data.session_id;
           sessionStorage.setItem('cb_session_' + BOT_ID, sessionId);
         }
+        if (data.message_id) lastMessageId = data.message_id;
         appendMessage('assistant', data.message || 'Maaf, terjadi kesalahan.', data.message_id);
         if (data.handoff) {
           appendMessage('assistant', '🔗 Menghubungkan ke agen...');
