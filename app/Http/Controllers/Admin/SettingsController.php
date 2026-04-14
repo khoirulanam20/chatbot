@@ -120,7 +120,7 @@ class SettingsController extends Controller
 
         foreach ($lines as $i => $line) {
             foreach ($updates as $key => $value) {
-                if (preg_match('/^' . preg_quote($key, '/') . '=', $line) === 1) {
+                if (preg_match('/^' . preg_quote($key, '/') . '=/', $line) === 1) {
                     $lines[$i] = $this->formatEnvLine($key, $value);
                     $seen[$key] = true;
                     break;
