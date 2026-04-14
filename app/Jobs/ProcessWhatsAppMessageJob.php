@@ -83,6 +83,6 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
 
         $result = $rag->processMessage($conversation, $text);
 
-        $chatery->sendMessage($waInstance->api_key, $from, $result['content']);
+        $chatery->sendMessage($waInstance->api_key, $from, $result['content'], $waInstance->instance_id ?? 'default');
     }
 }

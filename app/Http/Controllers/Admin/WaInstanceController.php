@@ -79,7 +79,7 @@ class WaInstanceController extends Controller
 
     public function testConnection(WaInstance $waInstance)
     {
-        $result = $this->chatery->testConnection($waInstance->api_key);
+        $result = $this->chatery->testConnection($waInstance->api_key, $waInstance->instance_id ?? 'default');
 
         if ($result['success']) {
             $waInstance->update(['status' => 'active']);

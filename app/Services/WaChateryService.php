@@ -14,19 +14,19 @@ class WaChateryService
         $this->baseUrl = rtrim(config('services.chatery.base_url', 'https://wa.firstudio.id/api'), '/');
     }
 
-    public function sendMessage(string $apiKey, string $to, string $message): bool
+    public function sendMessage(string $apiKey, string $to, string $message, string $sessionId = 'default'): bool
     {
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type'  => 'application/json',
+                'X-Api-Key'    => $apiKey,
+                'Content-Type' => 'application/json',
             ])
                 ->baseUrl($this->baseUrl)
                 ->timeout(15)
-                ->post('/messages/send', [
-                    'to'      => $this->normalizePhone($to),
-                    'message' => $message,
-                    'type'    => 'text',
+                ->post('/whatsapp/chats/send-text', [
+                    'sessionId' => $sessionId,
+                    'to'        => $this->normalizePhone($to),
+                    'text'      => $message,
                 ]);
 
             if ($response->failed()) {
@@ -45,21 +45,22 @@ class WaChateryService
         }
     }
 
-    public function testConnection(string $apiKey): array
+    public function testConnection(string $apiKey, string $sessionId = 'default'): array
     {
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $apiKey,
+                'X-Api-Key' => $apiKey,
             ])
                 ->baseUrl($this->baseUrl)
                 ->timeout(10)
-                ->get('/instance/status');
+                ->get('/whatsapp/sessions/' . $sessionId . '/status');
 
             if ($response->successful()) {
+                $data = $response->json('data') ?? [];
                 return [
                     'success' => true,
-                    'status'  => $response->json('status'),
-                    'phone'   => $response->json('phone'),
+                    'status'  => $data['status'] ?? $data['isConnected'] ? 'connected' : 'disconnected',
+                    'phone'   => $data['phoneNumber'] ?? $data['phone'] ?? null,
                 ];
             }
 
