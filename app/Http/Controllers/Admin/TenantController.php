@@ -11,12 +11,12 @@ class TenantController extends Controller
     public function index()
     {
         $tenants = Tenant::withCount(['users', 'chatbots'])->paginate(20);
-        return view('admin.tenants.index', compact('tenants'));
+        return inertia('tenants/Index', ['tenants' => $tenants]);
     }
 
     public function create()
     {
-        return view('admin.tenants.create');
+        return inertia('tenants/Create');
     }
 
     public function store(Request $request)
@@ -40,7 +40,7 @@ class TenantController extends Controller
     public function edit(Tenant $tenant)
     {
         $tenant->loadCount(['users', 'chatbots']);
-        return view('admin.tenants.edit', compact('tenant'));
+        return inertia('tenants/Edit', ['tenant' => $tenant]);
     }
 
     public function update(Request $request, Tenant $tenant)
@@ -51,7 +51,11 @@ class TenantController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        $tenant->update($request->only(['name', 'plan', 'is_active']));
+        $tenant->update([
+            'name' => $request->name,
+            'plan' => $request->plan,
+            'is_active' => $request->boolean('is_active'),
+        ]);
 
         return back()->with('success', 'Tenant berhasil diperbarui!');
     }

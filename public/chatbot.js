@@ -21,6 +21,16 @@
   let lastMessageId = null;
   let pollingInterval = null;
 
+  const ICONS = {
+    bot: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
+    message: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
+    close: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    send: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+    thumbsUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>',
+    thumbsDown: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>',
+    check: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+  };
+
   const STYLES = `
     #cb-widget * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     #cb-widget { position: fixed; z-index: 999999; }
@@ -31,8 +41,9 @@
       background: var(--cb-primary, #4F46E5);
       border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
       box-shadow: 0 4px 20px rgba(0,0,0,0.2); transition: transform .2s, box-shadow .2s;
-      color: #fff; font-size: 24px;
+      color: #fff;
     }
+    #cb-bubble svg { width: 26px; height: 26px; }
     #cb-bubble:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(0,0,0,0.25); }
     #cb-window {
       position: absolute; bottom: 70px;
@@ -52,13 +63,23 @@
     }
     #cb-header-avatar {
       width: 38px; height: 38px; border-radius: 50%;
-      background: rgba(255,255,255,0.25); object-fit: cover;
-      display: flex; align-items: center; justify-content: center; font-size: 18px;
+      background: rgba(255,255,255,0.2); object-fit: cover;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; overflow: hidden;
     }
+    #cb-header-avatar svg { width: 22px; height: 22px; color: #fff; }
+    #cb-header-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
     #cb-header-info { flex: 1; }
     #cb-header-name { font-weight: 700; font-size: 15px; }
-    #cb-header-status { font-size: 12px; opacity: .8; }
-    #cb-close-btn { background: none; border: none; cursor: pointer; color: #fff; font-size: 20px; opacity: .8; line-height: 1; }
+    #cb-header-status { font-size: 12px; opacity: .9; display: flex; align-items: center; gap: 5px; }
+    .cb-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(74,222,128,0.35); }
+    #cb-close-btn {
+      background: rgba(255,255,255,0.12); border: none; cursor: pointer; color: #fff;
+      width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      transition: background .2s; flex-shrink: 0;
+    }
+    #cb-close-btn:hover { background: rgba(255,255,255,0.22); }
+    #cb-close-btn svg { width: 18px; height: 18px; }
     #cb-messages {
       flex: 1; overflow-y: auto; padding: 16px;
       display: flex; flex-direction: column; gap: 10px; min-height: 200px; max-height: 350px;
@@ -75,9 +96,16 @@
     .cb-typing span:nth-child(2) { animation-delay: .15s; }
     .cb-typing span:nth-child(3) { animation-delay: .3s; }
     @keyframes cb-bounce { 0%,80%,100%{transform:scale(.8)} 40%{transform:scale(1.2)} }
-    .cb-rating { display: flex; gap: 6px; margin-top: 6px; }
-    .cb-rating button { background: none; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; padding: 3px 8px; font-size: 14px; transition: background .2s; }
-    .cb-rating button:hover { background: #f8fafc; }
+    .cb-rating { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+    .cb-rating button {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer;
+      width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+      transition: border-color .2s, background .2s, color .2s; color: #64748b;
+    }
+    .cb-rating button:hover { background: #f8fafc; border-color: var(--cb-primary, #4F46E5); color: var(--cb-primary, #4F46E5); }
+    .cb-rating button svg { width: 16px; height: 16px; }
+    .cb-rating-thanks { font-size: 12px; color: #64748b; display: inline-flex; align-items: center; gap: 4px; }
+    .cb-rating-thanks svg { width: 14px; height: 14px; color: #10b981; }
     #cb-quick-replies { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px; border-top: 1px solid #f1f5f9; }
     .cb-quick-btn { background: none; border: 1.5px solid var(--cb-primary, #4F46E5); color: var(--cb-primary, #4F46E5); border-radius: 20px; padding: 5px 14px; font-size: 13px; cursor: pointer; transition: all .2s; white-space: nowrap; }
     .cb-quick-btn:hover { background: var(--cb-primary, #4F46E5); color: #fff; }
@@ -92,11 +120,13 @@
     #cb-input:focus { border-color: var(--cb-primary, #4F46E5); }
     #cb-send-btn {
       background: var(--cb-primary, #4F46E5); color: #fff; border: none;
-      width: 38px; height: 38px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 16px;
-      transition: background .2s;
+      width: 40px; height: 40px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity .2s, transform .15s;
     }
-    #cb-send-btn:hover { opacity: 0.88; }
+    #cb-send-btn:hover { opacity: 0.9; transform: scale(1.04); }
+    #cb-send-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    #cb-send-btn svg { width: 18px; height: 18px; margin-left: 1px; }
     #cb-footer { text-align: center; padding: 6px; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
     .cb-msg b, .cb-msg strong { font-weight: 700; }
     .cb-msg em, .cb-msg i { font-style: italic; }
@@ -120,22 +150,22 @@
     wrapper.innerHTML = `
       <div id="cb-window" class="cb-hidden">
         <div id="cb-header">
-          <div id="cb-header-avatar">${config.avatar ? `<img src="${config.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : '🤖'}</div>
+          <div id="cb-header-avatar">${config.avatar ? `<img src="${escapeHtml(config.avatar)}" alt="">` : ICONS.bot}</div>
           <div id="cb-header-info">
             <div id="cb-header-name">${escapeHtml(config.name || 'Asisten')}</div>
-            <div id="cb-header-status">● Online</div>
+            <div id="cb-header-status"><span class="cb-status-dot"></span>Online</div>
           </div>
-          <button id="cb-close-btn" aria-label="Tutup">✕</button>
+          <button id="cb-close-btn" aria-label="Tutup" type="button">${ICONS.close}</button>
         </div>
         <div id="cb-messages"></div>
         <div id="cb-quick-replies"></div>
         <div id="cb-input-area">
           <textarea id="cb-input" placeholder="Ketik pesan..." rows="1"></textarea>
-          <button id="cb-send-btn" aria-label="Kirim">➤</button>
+          <button id="cb-send-btn" aria-label="Kirim" type="button">${ICONS.send}</button>
         </div>
         <div id="cb-footer">Powered by AI CS Chatbot</div>
       </div>
-      <button id="cb-bubble" aria-label="Buka chat">💬</button>
+      <button id="cb-bubble" aria-label="Buka chat" type="button">${ICONS.message}</button>
     `;
 
     document.body.appendChild(wrapper);
@@ -160,7 +190,7 @@
     const bubble = document.getElementById('cb-bubble');
     if (isOpen) {
       win.classList.remove('cb-hidden');
-      bubble.innerHTML = '✕';
+      bubble.innerHTML = ICONS.close;
       if (sessionId) {
         loadHistory();
       } else if (document.getElementById('cb-messages').children.length === 0) {
@@ -170,7 +200,7 @@
       setTimeout(() => document.getElementById('cb-input').focus(), 100);
     } else {
       win.classList.add('cb-hidden');
-      bubble.innerHTML = '💬';
+      bubble.innerHTML = ICONS.message;
       stopPolling();
     }
   }
@@ -275,8 +305,8 @@
       const rating = document.createElement('div');
       rating.className = 'cb-rating';
       rating.innerHTML = `
-        <button onclick="window._cbRate(${messageId}, 1, this)" title="Helpful">👍</button>
-        <button onclick="window._cbRate(${messageId}, -1, this)" title="Not helpful">👎</button>
+        <button type="button" onclick="window._cbRate(${messageId}, 1, this)" title="Membantu" aria-label="Membantu">${ICONS.thumbsUp}</button>
+        <button type="button" onclick="window._cbRate(${messageId}, -1, this)" title="Tidak membantu" aria-label="Tidak membantu">${ICONS.thumbsDown}</button>
       `;
       div.appendChild(rating);
     }
@@ -341,7 +371,7 @@
         if (data.message_id) lastMessageId = data.message_id;
         appendMessage('assistant', data.message || 'Maaf, terjadi kesalahan.', data.message_id);
         if (data.handoff) {
-          appendMessage('assistant', '🔗 Menghubungkan ke agen...');
+          appendMessage('assistant', 'Menghubungkan ke agen kami...');
         }
       })
       .catch(function () {
@@ -357,7 +387,7 @@
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ message_id: messageId, rating: rating }),
     }).then(function () {
-      parent.innerHTML = rating === 1 ? '✅ Terima kasih!' : '📝 Terima kasih atas masukan Anda!';
+      parent.innerHTML = '<span class="cb-rating-thanks">' + ICONS.check + ' Terima kasih atas masukan Anda</span>';
     });
   };
 

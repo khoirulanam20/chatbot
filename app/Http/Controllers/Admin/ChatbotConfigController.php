@@ -14,14 +14,14 @@ class ChatbotConfigController extends Controller
 {
     public function index()
     {
-        $chatbots = Chatbot::with('embedConfig')->paginate(10);
-        return view('admin.chatbot.index', compact('chatbots'));
+        $chatbots = Chatbot::with('embedConfig')->withCount('conversations')->paginate(10);
+        return inertia('chatbot/Index', ['chatbots' => $chatbots]);
     }
 
     public function create()
     {
         $tenants = Auth::user()->isSuperAdmin() ? Tenant::all() : collect([Auth::user()->tenant]);
-        return view('admin.chatbot.create', compact('tenants'));
+        return inertia('chatbot/Create', ['tenants' => $tenants]);
     }
 
     public function store(Request $request)
@@ -74,7 +74,7 @@ class ChatbotConfigController extends Controller
     {
         $chatbot->load('embedConfig');
         $tenants = Auth::user()->isSuperAdmin() ? Tenant::all() : collect([Auth::user()->tenant]);
-        return view('admin.chatbot.edit', compact('chatbot', 'tenants'));
+        return inertia('chatbot/Edit', ['chatbot' => $chatbot, 'tenants' => $tenants]);
     }
 
     public function update(Request $request, Chatbot $chatbot)
@@ -133,6 +133,6 @@ class ChatbotConfigController extends Controller
 
     public function embedCode(Chatbot $chatbot)
     {
-        return view('admin.chatbot.embed-code', compact('chatbot'));
+        return inertia('chatbot/EmbedCode', ['chatbot' => $chatbot]);
     }
 }

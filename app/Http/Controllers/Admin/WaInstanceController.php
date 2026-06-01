@@ -18,13 +18,13 @@ class WaInstanceController extends Controller
     public function index()
     {
         $instances = WaInstance::with(['tenant', 'chatbot'])->paginate(15);
-        return view('admin.wa.index', compact('instances'));
+        return inertia('wa/Index', ['instances' => $instances]);
     }
 
     public function create()
     {
         $chatbots = Chatbot::all();
-        return view('admin.wa.create', compact('chatbots'));
+        return inertia('wa/Create', ['chatbots' => $chatbots]);
     }
 
     public function store(Request $request)
@@ -54,7 +54,11 @@ class WaInstanceController extends Controller
     {
         $chatbots = Chatbot::all();
         $webhookUrl = $this->chatery->getWebhookUrl();
-        return view('admin.wa.edit', compact('waInstance', 'chatbots', 'webhookUrl'));
+        return inertia('wa/Edit', [
+            'waInstance' => $waInstance,
+            'chatbots' => $chatbots,
+            'webhookUrl' => $webhookUrl,
+        ]);
     }
 
     public function update(Request $request, WaInstance $waInstance)

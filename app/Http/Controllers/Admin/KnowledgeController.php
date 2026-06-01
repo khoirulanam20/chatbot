@@ -26,7 +26,11 @@ class KnowledgeController extends Controller
 
         $documents = $query->latest()->paginate(15)->withQueryString();
 
-        return view('admin.knowledge.index', compact('documents', 'chatbots', 'chatbotId'));
+        return inertia('knowledge/Index', [
+            'documents' => $documents,
+            'chatbots' => $chatbots,
+            'chatbotId' => $chatbotId,
+        ]);
     }
 
     public function store(Request $request)
@@ -122,6 +126,9 @@ class KnowledgeController extends Controller
     public function show(KnowledgeDocument $document)
     {
         $chunks = $document->chunks()->orderBy('chunk_index')->paginate(20);
-        return view('admin.knowledge.show', compact('document', 'chunks'));
+        return inertia('knowledge/Show', [
+            'document' => $document,
+            'chunks' => $chunks,
+        ]);
     }
 }

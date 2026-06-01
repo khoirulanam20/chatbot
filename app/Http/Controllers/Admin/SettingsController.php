@@ -31,7 +31,13 @@ class SettingsController extends Controller
 
         $tenantSettings = $tenant?->settings ?? [];
 
-        return view('admin.settings.index', compact('global', 'tenantSettings', 'tenant', 'tenants'));
+        return inertia('settings/Index', [
+            'global' => $global,
+            'tenantSettings' => $tenantSettings,
+            'tenant' => $tenant,
+            'tenants' => $tenants,
+            'isSuperAdmin' => $user->isSuperAdmin(),
+        ]);
     }
 
     public function update(Request $request)

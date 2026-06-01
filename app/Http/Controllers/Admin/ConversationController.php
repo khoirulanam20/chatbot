@@ -42,7 +42,11 @@ class ConversationController extends Controller
         $conversations = $query->paginate(20)->withQueryString();
         $chatbots      = Chatbot::all();
 
-        return view('admin.conversations.index', compact('conversations', 'chatbots'));
+        return inertia('conversations/Index', [
+            'conversations' => $conversations,
+            'chatbots' => $chatbots,
+            'filters' => $request->only(['status', 'channel', 'search', 'chatbot_id']),
+        ]);
     }
 
     public function show(Conversation $conversation)
@@ -53,7 +57,11 @@ class ConversationController extends Controller
             ->whereIn('role', ['operator', 'admin'])
             ->get();
 
-        return view('admin.conversations.show', compact('conversation', 'messages', 'agents'));
+        return inertia('conversations/Show', [
+            'conversation' => $conversation,
+            'messages' => $messages,
+            'agents' => $agents,
+        ]);
     }
 
     public function sendMessage(Request $request, Conversation $conversation)

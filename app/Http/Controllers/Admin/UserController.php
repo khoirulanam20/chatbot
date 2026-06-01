@@ -21,13 +21,13 @@ class UserController extends Controller
         }
 
         $users = $query->paginate(20);
-        return view('admin.users.index', compact('users'));
+        return inertia('users/Index', ['users' => $users]);
     }
 
     public function create()
     {
         $tenants = Auth::user()->isSuperAdmin() ? Tenant::all() : collect([Auth::user()->tenant]);
-        return view('admin.users.create', compact('tenants'));
+        return inertia('users/Create', ['tenants' => $tenants]);
     }
 
     public function store(Request $request)
@@ -58,7 +58,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         $tenants = Auth::user()->isSuperAdmin() ? Tenant::all() : collect([Auth::user()->tenant]);
-        return view('admin.users.edit', compact('user', 'tenants'));
+        return inertia('users/Edit', ['user' => $user, 'tenants' => $tenants]);
     }
 
     public function update(Request $request, User $user)

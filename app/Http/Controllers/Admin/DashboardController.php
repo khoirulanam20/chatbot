@@ -51,6 +51,10 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        return view('admin.dashboard', compact('stats', 'trend', 'recentConversations'));
+        return inertia('Dashboard', [
+            'stats' => $stats,
+            'trend' => $trend,
+            'recentConversations' => $recentConversations,
+        ]);
     }
 }

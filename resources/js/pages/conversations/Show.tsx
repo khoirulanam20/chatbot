@@ -1,0 +1,171 @@
+import { FormEventHandler, useEffect, useRef } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { ArrowLeft, Bot, Headphones, Send, User } from 'lucide-react';
+import { Layout } from '@/components/Layout';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import type { Conversation, Message, User as AppUser } from '@/types';
+
+interface Props {
+    conversation: Conversation & { is_ai_active?: boolean };
+    messages: Message[];
+    agents: AppUser[];
+}
+
+export default function ConversationsShow({ conversation, messages, agents }: Props) {
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const { data, setData, post, processing, reset } = useForm({ message: '' });
+    const assignForm = useForm({ agent_id: '' });
+    const canReply = conversation.is_ai_active === false || conversation.status === 'handoff';
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.reload({ only: ['messages', 'conversation'], preserveScroll: true });
+        }, 3000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        if (!data.message.trim()) return;
+        post(`/admin/conversations/${conversation.id}/message`, {
+            onSuccess: () => reset('message'),
+        });
+    };
+
+    const getRoleIcon = (role: string) => {
+        if (role === 'user') return <User className="h-4 w-4" />;
+        if (role === 'agent') return <Headphones className="h-4 w-4" />;
+        return <Bot className="h-4 w-4" />;
+    };
+
+    return (
+        <Layout>
+            <Head title="Detail Percakapan" />
+            <div className="space-y-6">
+                <Link href="/admin/conversations" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
+                    <ArrowLeft className="h-4 w-4" /> Kembali
+                </Link>
+
+                <div className="grid gap-6 lg:grid-cols-3">
+                    <div className="flex flex-col rounded-lg border border-hairline bg-surface-card lg:col-span-2" style={{ height: 600 }}>
+                        <div className="flex items-center justify-between border-b border-hairline p-4">
+                            <div>
+                                <p className="font-semibold">
+                                    {conversation.contact?.name || conversation.contact?.identifier || 'Anonymous'}
+                                </p>
+                                <p className="text-xs text-muted">
+                                    {conversation.channel === 'whatsapp' ? 'WhatsApp' : 'Web'} · {conversation.chatbot?.name}
+                                </p>
+                            </div>
+                            <StatusBadge status={conversation.status} />
+                        </div>
+                        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+                            {messages.map((msg) => (
+                                <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                                    {msg.role !== 'user' && (
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-soft">
+                                            {getRoleIcon(msg.role)}
+                                        </div>
+                                    )}
+                                    <div
+                                        className={`max-w-md rounded-lg px-4 py-2 text-sm ${
+                                            msg.role === 'user'
+                                                ? 'bg-primary text-on-primary'
+                                                : msg.role === 'agent'
+                                                  ? 'bg-warning/20 text-ink'
+                                                  : 'border border-hairline bg-canvas'
+                                        }`}
+                                    >
+                                        {msg.role === 'agent' && <p className="mb-1 text-xs font-medium text-warning">Agen</p>}
+                                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                                        <p className="mt-1 text-xs opacity-60">{msg.created_at}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
+                        {canReply && (
+                            <form onSubmit={submit} className="flex gap-2 border-t border-hairline p-4">
+                                <Input
+                                    value={data.message}
+                                    onChange={(e) => setData('message', e.target.value)}
+                                    placeholder="Ketik balasan sebagai agen..."
+                                    className="flex-1"
+                                />
+                                <Button type="submit" disabled={processing}>
+                                    <Send className="h-4 w-4" />
+                                </Button>
+                            </form>
+                        )}
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="rounded-lg border border-hairline bg-surface-card p-5">
+                            <h3 className="mb-3 font-semibold">Info Kontak</h3>
+                            <dl className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <dt className="text-muted">Identifier</dt>
+                                    <dd>{conversation.contact?.identifier ?? '-'}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                    <dt className="text-muted">Channel</dt>
+                                    <dd>{conversation.channel}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                    <dt className="text-muted">Total Pesan</dt>
+                                    <dd>{messages.length}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                        <div className="rounded-lg border border-hairline bg-surface-card p-5 space-y-2">
+                            <h3 className="mb-3 font-semibold">Aksi</h3>
+                            <Button
+                                variant="secondary"
+                                className="w-full"
+                                onClick={() =>
+                                    router.patch(`/admin/conversations/${conversation.id}/status`, { status: 'resolved' })
+                                }
+                            >
+                                Tandai Selesai
+                            </Button>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    assignForm.post(`/admin/conversations/${conversation.id}/assign`);
+                                }}
+                                className="space-y-2"
+                            >
+                                <Label>Assign ke Agen</Label>
+                                <select
+                                    value={assignForm.data.agent_id}
+                                    onChange={(e) => assignForm.setData('agent_id', e.target.value)}
+                                    className="flex h-10 w-full rounded-md border border-hairline px-3 text-sm"
+                                >
+                                    <option value="">Pilih agen...</option>
+                                    {agents.map((a) => (
+                                        <option key={a.id} value={a.id}>{a.name}</option>
+                                    ))}
+                                </select>
+                                <Button type="submit" variant="outline" className="w-full" disabled={assignForm.processing}>
+                                    Assign
+                                </Button>
+                            </form>
+                            <Button variant="outline" className="w-full" asChild>
+                                <Link href={`/admin/conversations/${conversation.id}/resume-ai`} method="post">
+                                    Aktifkan AI Kembali
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Layout>
+    );
+}
