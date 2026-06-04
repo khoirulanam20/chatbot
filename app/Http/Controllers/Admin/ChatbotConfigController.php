@@ -85,7 +85,6 @@ class ChatbotConfigController extends Controller
     {
         $request->validate([
             'name'             => 'required|string|max:100',
-            'system_prompt'    => 'nullable|string',
             'model'            => 'required|string',
             'temperature'      => 'required|numeric|min:0|max:1',
             'max_context'      => 'required|integer|min:1|max:50',
@@ -97,7 +96,7 @@ class ChatbotConfigController extends Controller
             'agent_session_message'  => 'nullable|string|max:500',
         ]);
 
-        $data = $request->only(['name', 'system_prompt', 'model', 'temperature', 'max_context', 'language', 'fallback_message']);
+        $data = $request->only(['name', 'model', 'temperature', 'max_context', 'language', 'fallback_message']);
         $data['settings'] = array_merge($chatbot->settings ?? [], [
             'agent_session_minutes' => (int) ($request->agent_session_minutes ?? 30),
             'agent_session_message' => $request->agent_session_message
@@ -145,5 +144,48 @@ class ChatbotConfigController extends Controller
     public function embedCode(Chatbot $chatbot)
     {
         return inertia('chatbot/EmbedCode', ['chatbot' => $chatbot]);
+    }
+
+    public function persona(Chatbot $chatbot)
+    {
+        $persona = array_merge([
+            'role' => '',
+            'tone' => 'ramah',
+            'instructions' => '',
+            'restrictions' => '',
+            'greeting_style' => '',
+        ], $chatbot->getPersona());
+
+        return inertia('chatbot/Persona', [
+            'chatbot' => $chatbot->only(['id', 'name']),
+            'persona' => $persona,
+            'effective_system_prompt' => $chatbot->getEffectiveSystemPrompt(),
+            'uses_legacy_prompt' => ! $chatbot->hasPersona() && filled($chatbot->system_prompt),
+            'legacy_system_prompt' => $chatbot->system_prompt,
+        ]);
+    }
+
+    public function updatePersona(Request $request, Chatbot $chatbot)
+    {
+        $request->validate([
+            'role' => 'nullable|string|max:200',
+            'tone' => 'nullable|string|in:ramah,formal,profesional,santai',
+            'instructions' => 'nullable|string|max:5000',
+            'restrictions' => 'nullable|string|max:5000',
+            'greeting_style' => 'nullable|string|max:500',
+        ]);
+
+        $settings = $chatbot->settings ?? [];
+        $settings['persona'] = [
+            'role' => $request->input('role', ''),
+            'tone' => $request->input('tone', 'ramah'),
+            'instructions' => $request->input('instructions', ''),
+            'restrictions' => $request->input('restrictions', ''),
+            'greeting_style' => $request->input('greeting_style', ''),
+        ];
+        $chatbot->update(['settings' => $settings]);
+        $chatbot->refresh();
+
+        return back()->with('success', 'Persona berhasil disimpan!');
     }
 }

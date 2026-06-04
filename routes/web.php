@@ -23,6 +23,8 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
 
     Route::resource('chatbot', ChatbotConfigController::class)->except(['show']);
     Route::get('/chatbot/{chatbot}/embed-code', [ChatbotConfigController::class, 'embedCode'])->name('chatbot.embed-code');
+    Route::get('/chatbot/{chatbot}/persona', [ChatbotConfigController::class, 'persona'])->name('chatbot.persona');
+    Route::put('/chatbot/{chatbot}/persona', [ChatbotConfigController::class, 'updatePersona'])->name('chatbot.persona.update');
 
     Route::get('/knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
     Route::post('/knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');

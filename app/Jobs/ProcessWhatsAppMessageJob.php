@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\WaInstance;
 use App\Services\RAGService;
 use App\Services\WaChateryService;
+use App\Services\WaOutboundService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,7 +29,7 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
         $this->onQueue('whatsapp');
     }
 
-    public function handle(RAGService $rag, WaChateryService $chatery): void
+    public function handle(RAGService $rag, WaOutboundService $waOutbound): void
     {
         $waInstance = WaInstance::find($this->waInstanceId);
 
@@ -81,8 +82,13 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
             return;
         }
 
+        $sessionId = $waInstance->instance_id ?: 'default';
+        if ($waInstance->typing_enabled) {
+            app(WaChateryService::class)->sendTyping($waInstance->api_key, $from, $sessionId);
+        }
+
         $result = $rag->processMessage($conversation, $text);
 
-        $chatery->sendMessage($waInstance->api_key, $from, $result['content'], $waInstance->instance_id ?? 'default');
+        $waOutbound->sendText($waInstance, $from, $result['content']);
     }
 }

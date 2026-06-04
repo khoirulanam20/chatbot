@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { Layout } from '@/components/Layout';
+import { ChatbotSubNav } from '@/components/ChatbotSubNav';
 import { Button } from '@/components/ui/button';
 import type { Chatbot } from '@/types';
 
@@ -28,9 +29,10 @@ export default function EmbedCode({ chatbot }: Props) {
         <Layout>
             <Head title={`Embed — ${chatbot.name}`} />
             <div className="mx-auto max-w-3xl space-y-6">
-                <Link href={`/admin/chatbot/${chatbot.id}/edit`} className="text-sm text-muted hover:text-ink">
+                <Link href="/admin/chatbot" className="text-sm text-muted hover:text-ink">
                     ← Kembali
                 </Link>
+                <ChatbotSubNav chatbotId={chatbot.id} active="embed" />
                 <div className="space-y-6 rounded-lg border border-hairline bg-surface-card p-6">
                     <div>
                         <h1 className="font-display text-lg font-semibold">Embed Code untuk {chatbot.name}</h1>

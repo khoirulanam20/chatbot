@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Notifications\ConversationAssignedNotification;
 use App\Services\AgentSessionService;
 use App\Services\ChatImageService;
-use App\Services\WaChateryService;
+use App\Services\WaOutboundService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -91,8 +91,8 @@ class ConversationController extends Controller
         if ($conversation->channel === 'whatsapp') {
             $waInstance = $conversation->chatbot->waInstance;
             if ($waInstance) {
-                app(WaChateryService::class)->sendMessage(
-                    $waInstance->api_key,
+                app(WaOutboundService::class)->sendText(
+                    $waInstance,
                     $conversation->contact->identifier,
                     $request->message
                 );

@@ -37,18 +37,22 @@ class WaInstanceController extends Controller
             'chatbot_id'   => 'required|exists:chatbots,id',
             'phone_number' => 'required|string|max:20',
             'api_key'      => 'required|string',
-            'instance_id'  => 'nullable|string|max:100',
+            'instance_id'        => 'nullable|string|max:100',
+            'typing_enabled'     => 'nullable|boolean',
+            'typing_duration_ms' => 'nullable|integer|min:500|max:10000',
         ]);
 
         $chatbot = Chatbot::findOrFail($request->chatbot_id);
 
         WaInstance::withoutGlobalScopes()->create([
-            'tenant_id'    => $chatbot->tenant_id,
-            'chatbot_id'   => $chatbot->id,
-            'phone_number' => $request->phone_number,
-            'api_key'      => $request->api_key,
-            'instance_id'  => $request->instance_id,
-            'status'       => 'inactive',
+            'tenant_id'          => $chatbot->tenant_id,
+            'chatbot_id'         => $chatbot->id,
+            'phone_number'       => $request->phone_number,
+            'api_key'            => $request->api_key,
+            'instance_id'        => $request->instance_id,
+            'status'             => 'inactive',
+            'typing_enabled'     => $request->boolean('typing_enabled'),
+            'typing_duration_ms' => $request->input('typing_duration_ms', 2000),
         ]);
 
         return redirect()->route('admin.wa.index')->with('success', 'WA Instance berhasil ditambahkan.');
@@ -71,10 +75,14 @@ class WaInstanceController extends Controller
             'phone_number' => 'required|string|max:20',
             'api_key'      => 'nullable|string',
             'instance_id'  => 'nullable|string|max:100',
-            'chatbot_id'   => 'required|exists:chatbots,id',
+            'chatbot_id'         => 'required|exists:chatbots,id',
+            'typing_enabled'     => 'nullable|boolean',
+            'typing_duration_ms' => 'nullable|integer|min:500|max:10000',
         ]);
 
         $data = $request->only(['phone_number', 'instance_id', 'chatbot_id']);
+        $data['typing_enabled']     = $request->boolean('typing_enabled');
+        $data['typing_duration_ms'] = $request->input('typing_duration_ms', $waInstance->typing_duration_ms ?? 2000);
 
         if ($request->filled('api_key')) {
             $data['api_key'] = $request->api_key;

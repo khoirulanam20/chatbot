@@ -19,7 +19,9 @@ export default function WaEdit({ waInstance, chatbots, webhookUrl }: Props) {
         chatbot_id: String(waInstance.chatbot_id),
         phone_number: waInstance.phone_number,
         api_key: '',
-        instance_id: (waInstance as WaInstance & { instance_id?: string }).instance_id ?? '',
+        instance_id: waInstance.instance_id ?? '',
+        typing_enabled: waInstance.typing_enabled ?? false,
+        typing_duration_ms: String(waInstance.typing_duration_ms ?? 2000),
     });
 
     const submit: FormEventHandler = (e) => {
@@ -72,6 +74,30 @@ export default function WaEdit({ waInstance, chatbots, webhookUrl }: Props) {
                     <div>
                         <Label>Nomor Telepon *</Label>
                         <Input value={data.phone_number} onChange={(e) => setData('phone_number', e.target.value)} className="mt-1" required />
+                    </div>
+                    <div className="space-y-3 rounded-lg border border-hairline bg-surface-soft p-4">
+                        <label className="flex items-center gap-2 text-sm font-medium">
+                            <input
+                                type="checkbox"
+                                checked={data.typing_enabled}
+                                onChange={(e) => setData('typing_enabled', e.target.checked)}
+                            />
+                            Aktifkan indikator mengetik
+                        </label>
+                        {data.typing_enabled && (
+                            <div>
+                                <Label>Durasi typing (ms)</Label>
+                                <Input
+                                    type="number"
+                                    min={500}
+                                    max={10000}
+                                    step={500}
+                                    value={data.typing_duration_ms}
+                                    onChange={(e) => setData('typing_duration_ms', e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                        )}
                     </div>
                     <Button
                         type="button"

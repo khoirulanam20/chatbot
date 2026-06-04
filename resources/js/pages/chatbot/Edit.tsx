@@ -1,6 +1,7 @@
 import { FormEventHandler } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Layout } from '@/components/Layout';
+import { ChatbotSubNav } from '@/components/ChatbotSubNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,7 +46,6 @@ export default function ChatbotEdit({ chatbot }: Props) {
         temperature: String(chatbot.temperature ?? 0.7),
         max_context: String(chatbot.max_context ?? 10),
         language: chatbot.language ?? 'id',
-        system_prompt: chatbot.system_prompt ?? '',
         fallback_message: chatbot.fallback_message ?? '',
         handoff_triggers: Array.isArray(chatbot.handoff_triggers)
             ? chatbot.handoff_triggers.join('\n')
@@ -73,6 +73,7 @@ export default function ChatbotEdit({ chatbot }: Props) {
                 <Link href="/admin/chatbot" className="text-sm text-muted hover:text-ink">
                     ← Kembali
                 </Link>
+                <ChatbotSubNav chatbotId={chatbot.id} active="edit" />
                 <div className="rounded-lg border border-hairline bg-surface-card p-6">
                     <h1 className="mb-6 font-display text-lg font-semibold">Konfigurasi Chatbot</h1>
                     <form onSubmit={submit} className="space-y-4">
@@ -108,10 +109,6 @@ export default function ChatbotEdit({ chatbot }: Props) {
                                 <Label>Max Context</Label>
                                 <Input type="number" min="1" max="50" value={data.max_context} onChange={(e) => setData('max_context', e.target.value)} className="mt-1" />
                             </div>
-                        </div>
-                        <div>
-                            <Label>System Prompt</Label>
-                            <textarea rows={5} value={data.system_prompt} onChange={(e) => setData('system_prompt', e.target.value)} className="mt-1 w-full rounded-md border border-hairline px-3 py-2 text-sm" />
                         </div>
                         <div>
                             <Label>Pesan Fallback</Label>
@@ -183,14 +180,7 @@ export default function ChatbotEdit({ chatbot }: Props) {
                             />
                             Izinkan pengunjung mengirim gambar di widget
                         </label>
-                        <div className="flex gap-3">
-                            <Button type="submit" disabled={processing}>Simpan Perubahan</Button>
-                            <Button type="button" variant="outline" asChild>
-                                <Link href={`/admin/chatbot/${chatbot.id}/embed-code`}>
-                                    Lihat Embed Code
-                                </Link>
-                            </Button>
-                        </div>
+                        <Button type="submit" disabled={processing}>Simpan Perubahan</Button>
                     </form>
                 </div>
             </div>

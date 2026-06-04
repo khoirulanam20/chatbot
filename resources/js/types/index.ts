@@ -41,6 +41,14 @@ export interface Paginated<T> {
     links: { url: string | null; label: string; active: boolean }[];
 }
 
+export interface ChatbotPersona {
+    role?: string;
+    tone?: 'ramah' | 'formal' | 'profesional' | 'santai' | string;
+    instructions?: string;
+    restrictions?: string;
+    greeting_style?: string;
+}
+
 export interface Chatbot {
     id: number;
     name: string;
@@ -50,6 +58,7 @@ export interface Chatbot {
     settings?: {
         agent_session_minutes?: number;
         agent_session_message?: string;
+        persona?: ChatbotPersona;
     };
     embed_config?: EmbedConfig;
     wa_instance?: WaInstance;
@@ -126,6 +135,8 @@ export interface WaInstance {
     id: number;
     phone_number: string;
     instance_id?: string | null;
+    typing_enabled?: boolean;
+    typing_duration_ms?: number;
     status: string;
     chatbot_id: number;
     chatbot?: Chatbot;

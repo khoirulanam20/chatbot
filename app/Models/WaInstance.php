@@ -10,13 +10,16 @@ use Illuminate\Support\Facades\Crypt;
 class WaInstance extends Model
 {
     protected $fillable = [
-        'tenant_id', 'chatbot_id', 'instance_id', 'phone_number', 'api_key', 'status', 'metadata',
+        'tenant_id', 'chatbot_id', 'instance_id', 'phone_number', 'api_key', 'status',
+        'typing_enabled', 'typing_duration_ms', 'metadata',
     ];
 
     protected $hidden = ['api_key'];
 
     protected $casts = [
-        'metadata' => 'array',
+        'metadata'        => 'array',
+        'typing_enabled'  => 'boolean',
+        'typing_duration_ms' => 'integer',
     ];
 
     protected static function booted(): void

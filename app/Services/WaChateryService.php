@@ -14,20 +14,31 @@ class WaChateryService
         $this->baseUrl = rtrim(config('services.chatery.base_url', 'https://wa.firstudio.id/api'), '/') . '/';
     }
 
-    public function sendMessage(string $apiKey, string $to, string $message, string $sessionId = 'default'): bool
-    {
+    public function sendMessage(
+        string $apiKey,
+        string $to,
+        string $message,
+        string $sessionId = 'default',
+        ?int $typingTime = null
+    ): bool {
         try {
+            $payload = [
+                'sessionId' => $sessionId,
+                'chatId'    => $this->normalizeChatId($to),
+                'message'   => $message,
+            ];
+
+            if ($typingTime !== null && $typingTime > 0) {
+                $payload['typingTime'] = $typingTime;
+            }
+
             $response = Http::withHeaders([
                 'X-Api-Key'    => $apiKey,
                 'Content-Type' => 'application/json',
             ])
                 ->baseUrl($this->baseUrl)
                 ->timeout(15)
-                ->post('whatsapp/chats/send-text', [
-                    'sessionId' => $sessionId,
-                    'chatId'    => $this->normalizeChatId($to),
-                    'message'   => $message,
-                ]);
+                ->post('whatsapp/chats/send-text', $payload);
 
             if ($response->failed()) {
                 Log::error('WA Chatery send failed', [
@@ -82,6 +93,50 @@ class WaChateryService
     public function getWebhookUrl(): string
     {
         return url('/api/webhook/whatsapp');
+    }
+
+    public function sendTyping(string $apiKey, string $to, string $sessionId = 'default'): bool
+    {
+        try {
+            $response = Http::withHeaders([
+                'X-Api-Key'    => $apiKey,
+                'Content-Type' => 'application/json',
+            ])
+                ->baseUrl($this->baseUrl)
+                ->timeout(10)
+                ->post('whatsapp/chats/presence', [
+                    'sessionId' => $sessionId,
+                    'chatId'    => $this->normalizeChatId($to),
+                    'presence'  => 'composing',
+                ]);
+
+            return $response->successful();
+        } catch (\Exception $e) {
+            Log::debug('WA Chatery typing failed', ['message' => $e->getMessage()]);
+
+            return false;
+        }
+    }
+
+    public function clearTyping(string $apiKey, string $to, string $sessionId = 'default'): bool
+    {
+        try {
+            $response = Http::withHeaders([
+                'X-Api-Key'    => $apiKey,
+                'Content-Type' => 'application/json',
+            ])
+                ->baseUrl($this->baseUrl)
+                ->timeout(10)
+                ->post('whatsapp/chats/presence', [
+                    'sessionId' => $sessionId,
+                    'chatId'    => $this->normalizeChatId($to),
+                    'presence'  => 'paused',
+                ]);
+
+            return $response->successful();
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**

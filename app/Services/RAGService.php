@@ -164,7 +164,7 @@ class RAGService
         string $context,
         string $userMessage
     ): array {
-        $systemPrompt = $chatbot->system_prompt ?? "Kamu adalah asisten layanan pelanggan yang membantu.";
+        $systemPrompt = $chatbot->getEffectiveSystemPrompt();
 
         if (! empty($context)) {
             $systemPrompt .= "\n\n" . $context;

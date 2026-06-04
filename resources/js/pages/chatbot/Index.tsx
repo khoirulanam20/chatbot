@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Code, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Code, Pencil, Plus, Trash2, UserCircle } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { DataTable } from '@/components/DataTable';
 import { Pagination } from '@/components/Pagination';
@@ -40,6 +40,11 @@ export default function ChatbotIndex({ chatbots }: Props) {
                     <Button variant="ghost" size="icon" asChild>
                         <Link href={`/admin/chatbot/${row.id}/embed-code`}>
                             <Code className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <Button variant="ghost" size="icon" asChild title="Persona">
+                        <Link href={`/admin/chatbot/${row.id}/persona`}>
+                            <UserCircle className="h-4 w-4" />
                         </Link>
                     </Button>
                     <Button variant="ghost" size="icon" asChild>
