@@ -87,15 +87,68 @@ class WaInstanceController extends Controller
 
     public function testConnection(WaInstance $waInstance)
     {
-        $result = $this->chatery->testConnection($waInstance->api_key, $waInstance->instance_id ?? 'default');
+        $instanceId = $waInstance->instance_id ?: 'default';
+        $result     = $this->chatery->testConnection($waInstance->api_key, $instanceId);
 
         if ($result['success']) {
-            $waInstance->update(['status' => 'active']);
-            return back()->with('success', 'Koneksi berhasil! Status: ' . ($result['status'] ?? 'connected'));
+            $waInstance->update([
+                'status'   => 'active',
+                'metadata' => array_merge($waInstance->metadata ?? [], [
+                    'last_error'      => null,
+                    'last_tested_at'  => now()->toIso8601String(),
+                    'last_test_ok'    => true,
+                    'chatery_status'  => $result['status'] ?? 'connected',
+                    'chatery_phone'   => $result['phone'] ?? null,
+                ]),
+            ]);
+
+            return back()->with('success', 'Koneksi berhasil! Status Chatery: ' . ($result['status'] ?? 'connected'));
         }
 
-        $waInstance->update(['status' => 'error']);
-        return back()->withErrors(['connection' => 'Koneksi gagal: ' . ($result['error'] ?? 'Unknown error')]);
+        $errorMessage = $result['error'] ?? 'Unknown error';
+        $hint         = $this->buildInstanceIdHint($waInstance->api_key, $instanceId);
+
+        $waInstance->update([
+            'status'   => 'error',
+            'metadata' => array_merge($waInstance->metadata ?? [], [
+                'last_error'     => $errorMessage,
+                'last_tested_at' => now()->toIso8601String(),
+                'last_test_ok'   => false,
+            ]),
+        ]);
+
+        $fullMessage = 'Koneksi gagal: ' . $errorMessage . $hint;
+
+        return back()
+            ->with('error', $fullMessage)
+            ->withErrors(['connection' => $fullMessage]);
+    }
+
+    public function previewSessions(Request $request)
+    {
+        $request->validate(['api_key' => 'required|string']);
+
+        $result = $this->chatery->listSessions($request->api_key);
+
+        return response()->json($result);
+    }
+
+    private function buildInstanceIdHint(string $apiKey, string $usedInstanceId): string
+    {
+        $list = $this->chatery->listSessions($apiKey);
+
+        if (! $list['success'] || empty($list['sessions'])) {
+            return ' Pastikan Instance ID sama dengan sessionId di dashboard Chatery (API Tester → GET /sessions).';
+        }
+
+        $lines = collect($list['sessions'])->map(function ($s) {
+            $phone = $s['phone'] ? " ({$s['phone']})" : '';
+            $st    = $s['status'] ?? '-';
+
+            return "{$s['id']}{$phone} [{$st}]";
+        })->implode(', ');
+
+        return " Instance ID yang dicoba: \"{$usedInstanceId}\". ID sesi di Chatery: {$lines}.";
     }
 
     public function destroy(WaInstance $waInstance)

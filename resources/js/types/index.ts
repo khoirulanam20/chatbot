@@ -125,10 +125,17 @@ export interface KnowledgeDocument {
 export interface WaInstance {
     id: number;
     phone_number: string;
+    instance_id?: string | null;
     status: string;
     chatbot_id: number;
     chatbot?: Chatbot;
     tenant?: Tenant;
+    metadata?: {
+        last_error?: string | null;
+        last_tested_at?: string | null;
+        chatery_status?: string | null;
+        chatery_phone?: string | null;
+    } | null;
 }
 
 export interface TenantFull extends Tenant {

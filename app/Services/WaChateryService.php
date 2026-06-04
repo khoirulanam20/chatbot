@@ -84,6 +84,58 @@ class WaChateryService
         return url('/api/webhook/whatsapp');
     }
 
+    /**
+     * Daftar sesi WhatsApp di Chatery (GET whatsapp/sessions).
+     *
+     * @return array{success: bool, sessions: array<int, array{id: string, phone: ?string, status: ?string, name: ?string}>, error?: string}
+     */
+    public function listSessions(string $apiKey): array
+    {
+        try {
+            $response = Http::withHeaders(['X-Api-Key' => $apiKey])
+                ->baseUrl($this->baseUrl)
+                ->timeout(10)
+                ->get('whatsapp/sessions');
+
+            if (! $response->successful()) {
+                return [
+                    'success'  => false,
+                    'sessions' => [],
+                    'error'    => $response->json('message') ?? 'HTTP ' . $response->status(),
+                ];
+            }
+
+            $raw = $response->json('data') ?? $response->json('sessions') ?? $response->json() ?? [];
+            if (isset($raw['sessions']) && is_array($raw['sessions'])) {
+                $raw = $raw['sessions'];
+            }
+            if (! is_array($raw)) {
+                $raw = [];
+            }
+
+            $sessions = [];
+            foreach ($raw as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $id = $item['id'] ?? $item['sessionId'] ?? $item['session_id'] ?? null;
+                if (! $id) {
+                    continue;
+                }
+                $sessions[] = [
+                    'id'     => (string) $id,
+                    'phone'  => $item['phoneNumber'] ?? $item['phone'] ?? $item['wid'] ?? null,
+                    'status' => $item['status'] ?? ($item['isConnected'] ?? false ? 'connected' : 'disconnected'),
+                    'name'   => $item['name'] ?? $item['pushName'] ?? null,
+                ];
+            }
+
+            return ['success' => true, 'sessions' => $sessions];
+        } catch (\Exception $e) {
+            return ['success' => false, 'sessions' => [], 'error' => $e->getMessage()];
+        }
+    }
+
     private function normalizeChatId(string $phone): string
     {
         // Jika sudah format chatId (mengandung @), kembalikan langsung

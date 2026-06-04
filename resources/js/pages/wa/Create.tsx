@@ -1,6 +1,7 @@
 import { FormEventHandler } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Layout } from '@/components/Layout';
+import { ChateryInstanceIdHelp } from '@/components/ChateryInstanceIdHelp';
 import { WebhookUrlField } from '@/components/WebhookUrlField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,9 +40,40 @@ export default function WaCreate({ chatbots, webhookUrl }: Props) {
                             {chatbots.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
                     </div>
-                    <div><Label>Nomor Telepon *</Label><Input value={data.phone_number} onChange={(e) => setData('phone_number', e.target.value)} className="mt-1" required /></div>
-                    <div><Label>API Key *</Label><Input value={data.api_key} onChange={(e) => setData('api_key', e.target.value)} className="mt-1" required /></div>
-                    <div><Label>Instance ID</Label><Input value={data.instance_id} onChange={(e) => setData('instance_id', e.target.value)} className="mt-1" /></div>
+                    <div>
+                        <Label>API Key *</Label>
+                        <Input value={data.api_key} onChange={(e) => setData('api_key', e.target.value)} className="mt-1" required />
+                    </div>
+                    <ChateryInstanceIdHelp
+                        apiKey={data.api_key}
+                        instanceId={data.instance_id}
+                        onSelectSession={(s) => {
+                            setData('instance_id', s.id);
+                            if (s.phone) {
+                                setData('phone_number', String(s.phone).replace(/\D/g, ''));
+                            }
+                        }}
+                    />
+                    <div>
+                        <Label>Instance ID</Label>
+                        <Input
+                            value={data.instance_id}
+                            onChange={(e) => setData('instance_id', e.target.value)}
+                            className="mt-1 font-mono"
+                            placeholder="sessionId dari Chatery (mis. nama sesi)"
+                        />
+                    </div>
+                    <div>
+                        <Label>Nomor Telepon *</Label>
+                        <Input
+                            value={data.phone_number}
+                            onChange={(e) => setData('phone_number', e.target.value)}
+                            className="mt-1"
+                            placeholder="6285117742328"
+                            required
+                        />
+                        <p className="mt-1 text-xs text-muted">Format internasional tanpa 0 di depan (sesuai tampilan di Chatery).</p>
+                    </div>
                     <Button type="submit" disabled={processing}>Simpan</Button>
                 </form>
             </div>

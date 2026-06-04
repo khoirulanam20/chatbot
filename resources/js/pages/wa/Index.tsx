@@ -30,11 +30,19 @@ export default function WaIndex({ instances }: Props) {
                 <div className="space-y-3">
                     {instances.data.map((inst) => (
                         <div key={inst.id} className="flex items-center justify-between rounded-lg border border-hairline bg-surface-card p-4">
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <p className="font-medium">{inst.phone_number}</p>
                                 <p className="text-sm text-muted">{inst.chatbot?.name}</p>
+                                {inst.instance_id && (
+                                    <p className="mt-0.5 font-mono text-xs text-muted">
+                                        Instance ID: {inst.instance_id}
+                                    </p>
+                                )}
+                                {inst.status === 'error' && inst.metadata?.last_error && (
+                                    <p className="mt-2 text-xs text-error">{inst.metadata.last_error}</p>
+                                )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex shrink-0 items-center gap-2">
                                 <StatusBadge status={inst.status} />
                                 <Button variant="outline" size="sm" asChild>
                                     <Link href={`/admin/wa/${inst.id}/test`} method="post">
