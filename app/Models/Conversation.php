@@ -12,13 +12,17 @@ class Conversation extends Model
 {
     protected $fillable = [
         'chatbot_id', 'session_id', 'channel', 'contact_id',
-        'assigned_agent_id', 'status', 'is_ai_active', 'last_message_at', 'metadata',
+        'assigned_agent_id', 'status', 'is_ai_active',
+        'agent_session_started_at', 'agent_session_ends_at',
+        'last_message_at', 'metadata',
     ];
 
     protected $casts = [
         'metadata' => 'array',
         'is_ai_active' => 'boolean',
         'last_message_at' => 'datetime',
+        'agent_session_started_at' => 'datetime',
+        'agent_session_ends_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -58,5 +62,10 @@ class Conversation extends Model
     public function getLastMessageAttribute(): ?Message
     {
         return $this->messages()->latest()->first();
+    }
+
+    public function inAgentSession(): bool
+    {
+        return app(\App\Services\AgentSessionService::class)->isActive($this);
     }
 }

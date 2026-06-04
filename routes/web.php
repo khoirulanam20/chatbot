@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ChatbotConfigController;
 use App\Http\Controllers\Admin\ConversationController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KnowledgeController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\TenantController;
 use App\Http\Controllers\Admin\UserController;
@@ -34,6 +35,7 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
     Route::get('/conversations/export', [ConversationController::class, 'export'])->name('conversations.export');
     Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->name('conversations.show');
     Route::post('/conversations/{conversation}/message', [ConversationController::class, 'sendMessage'])->name('conversations.message');
+    Route::post('/conversations/{conversation}/image', [ConversationController::class, 'sendImage'])->name('conversations.image');
     Route::patch('/conversations/{conversation}/status', [ConversationController::class, 'updateStatus'])->name('conversations.status');
     Route::post('/conversations/{conversation}/assign', [ConversationController::class, 'assign'])->name('conversations.assign');
     Route::post('/conversations/{conversation}/resume-ai', [ConversationController::class, 'resumeAI'])->name('conversations.resume-ai');
@@ -46,6 +48,10 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
     Route::middleware('super_admin')->group(function () {
         Route::resource('tenants', TenantController::class);
     });
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');

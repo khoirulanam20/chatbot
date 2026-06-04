@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Log;
 class RAGService
 {
     public function __construct(
-        private SumopodService $sumopod
+        private SumopodService $sumopod,
+        private AgentSessionService $agentSession
     ) {}
 
     public function processMessage(
@@ -27,6 +28,12 @@ class RAGService
         );
 
         $userMsg = $this->saveMessage($conversation, 'user', $userMessage);
+
+        $conversation->refresh();
+
+        if ($this->agentSession->isActive($conversation) || ! $conversation->is_ai_active) {
+            return $this->respondDuringAgentSession($conversation, $chatbot, $userMsg->id);
+        }
 
         if (! $chatbot->is_active) {
             $reply = $chatbot->getFallbackMessage();
@@ -204,10 +211,7 @@ class RAGService
 
     private function triggerHandoff(Conversation $conversation, Chatbot $chatbot, string $userMessage): array
     {
-        $conversation->update([
-            'status'      => 'handoff',
-            'is_ai_active' => false,
-        ]);
+        $this->agentSession->startSession($conversation);
 
         \App\Models\AgentHandoff::create([
             'conversation_id' => $conversation->id,
@@ -215,10 +219,32 @@ class RAGService
             'trigger_keyword' => $userMessage,
         ]);
 
-        $reply = "Baik, saya akan menghubungkan Anda dengan agen kami. Mohon tunggu sebentar...";
+        $reply = 'Baik, saya akan menghubungkan Anda dengan agen kami. Mohon tunggu sebentar...';
         $this->saveMessage($conversation, 'assistant', $reply);
+        $conversation->update(['last_message_at' => now()]);
 
-        return ['content' => $reply, 'sources' => [], 'handoff' => true];
+        return [
+            'content'        => $reply,
+            'sources'        => [],
+            'handoff'        => true,
+            'agent_session'  => true,
+        ];
+    }
+
+    private function respondDuringAgentSession(
+        Conversation $conversation,
+        Chatbot $chatbot,
+        int $userMessageId
+    ): array {
+        $holdMessage = $this->agentSession->getHoldMessage($chatbot);
+        $conversation->update(['last_message_at' => now()]);
+
+        return [
+            'content'         => $holdMessage,
+            'sources'         => [],
+            'user_message_id' => $userMessageId,
+            'agent_session'   => true,
+        ];
     }
 
     private function saveMessage(

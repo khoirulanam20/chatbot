@@ -59,4 +59,14 @@ class Chatbot extends Model
         return $this->fallback_message
             ?? 'Maaf, saya tidak dapat menemukan jawaban untuk pertanyaan Anda. Silakan hubungi agen kami.';
     }
+
+    public function getAgentSessionMinutes(): int
+    {
+        return app(\App\Services\AgentSessionService::class)->getSessionMinutes($this);
+    }
+
+    public function getAgentSessionMessage(): string
+    {
+        return app(\App\Services\AgentSessionService::class)->getHoldMessage($this);
+    }
 }

@@ -12,6 +12,7 @@ Route::post('/webhook/whatsapp', [WhatsAppController::class, 'webhook'])
 Route::get('/bot/config/{botId}', [BotConfigController::class, 'show']);
 
 Route::post('/chat/message', [ChatController::class, 'sendMessage']);
+Route::post('/chat/image', [ChatController::class, 'uploadImage']);
 Route::get('/chat/history/{sessionId}', [ChatController::class, 'getHistory']);
 Route::post('/chat/rate', [ChatController::class, 'rateMessage']);
 

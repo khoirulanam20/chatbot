@@ -13,9 +13,22 @@ export interface AuthUser {
     tenant: Tenant | null;
 }
 
+export interface AppNotification {
+    id: string;
+    title: string;
+    body: string;
+    url: string;
+    read_at?: string | null;
+    created_at: string;
+}
+
 export interface PageProps {
     auth: { user: AuthUser | null };
     flash: { success?: string; error?: string };
+    notifications?: {
+        unread_count: number;
+        recent: AppNotification[];
+    };
     [key: string]: unknown;
 }
 
@@ -34,6 +47,10 @@ export interface Chatbot {
     tenant_id: number;
     model?: string;
     is_active?: boolean;
+    settings?: {
+        agent_session_minutes?: number;
+        agent_session_message?: string;
+    };
     embed_config?: EmbedConfig;
     wa_instance?: WaInstance;
     conversations_count?: number;
@@ -61,6 +78,8 @@ export interface Conversation {
     last_message_at?: string;
     created_at: string;
     is_ai_active?: boolean;
+    agent_session_started_at?: string | null;
+    agent_session_ends_at?: string | null;
 }
 
 export interface Contact {
@@ -73,6 +92,12 @@ export interface Message {
     id: number;
     role: string;
     content: string;
+    metadata?: {
+        type?: string;
+        url?: string;
+        mime?: string;
+        size?: number;
+    } | null;
     created_at: string;
 }
 

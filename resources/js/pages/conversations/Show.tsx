@@ -1,6 +1,6 @@
-import { FormEventHandler, useEffect, useRef } from 'react';
+import { ChangeEventHandler, FormEventHandler, useEffect, useRef, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Bot, Headphones, Send, User } from 'lucide-react';
+import { ArrowLeft, Bot, Headphones, ImagePlus, Send, User } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,14 @@ interface Props {
 
 export default function ConversationsShow({ conversation, messages, agents }: Props) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { data, setData, post, processing, reset } = useForm({ message: '' });
+    const [uploadingImage, setUploadingImage] = useState(false);
     const assignForm = useForm({ agent_id: '' });
-    const canReply = conversation.is_ai_active === false || conversation.status === 'handoff';
+    const inAgentSession =
+        conversation.agent_session_ends_at &&
+        new Date(conversation.agent_session_ends_at) > new Date();
+    const canReply = inAgentSession || conversation.is_ai_active === false || conversation.status === 'handoff';
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -35,6 +40,26 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
         e.preventDefault();
         if (!data.message.trim()) return;
         post(`/admin/conversations/${conversation.id}/message`, {
+            onSuccess: () => reset('message'),
+        });
+    };
+
+    const onImageSelected: ChangeEventHandler<HTMLInputElement> = (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file || file.size > 10 * 1024 * 1024) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+        if (data.message.trim()) {
+            formData.append('caption', data.message.trim());
+        }
+
+        setUploadingImage(true);
+        router.post(`/admin/conversations/${conversation.id}/image`, formData, {
+            forceFormData: true,
+            preserveScroll: true,
+            onFinish: () => setUploadingImage(false),
             onSuccess: () => reset('message'),
         });
     };
@@ -64,7 +89,14 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                     {conversation.channel === 'whatsapp' ? 'WhatsApp' : 'Web'} · {conversation.chatbot?.name}
                                 </p>
                             </div>
-                            <StatusBadge status={conversation.status} />
+                            <div className="flex items-center gap-2">
+                                {inAgentSession && (
+                                    <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
+                                        Sesi agen aktif
+                                    </span>
+                                )}
+                                <StatusBadge status={conversation.status} />
+                            </div>
                         </div>
                         <div className="flex-1 space-y-4 overflow-y-auto p-5">
                             {messages.map((msg) => (
@@ -84,7 +116,16 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                         }`}
                                     >
                                         {msg.role === 'agent' && <p className="mb-1 text-xs font-medium text-warning">Agen</p>}
-                                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                                        {msg.metadata?.type === 'image' && msg.metadata.url && (
+                                            <img
+                                                src={msg.metadata.url}
+                                                alt="Lampiran"
+                                                className="mb-2 max-h-48 rounded-md object-contain"
+                                            />
+                                        )}
+                                        {msg.content && msg.content !== '[Gambar]' && (
+                                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                                        )}
                                         <p className="mt-1 text-xs opacity-60">{msg.created_at}</p>
                                     </div>
                                 </div>
@@ -92,14 +133,32 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                             <div ref={messagesEndRef} />
                         </div>
                         {canReply && (
-                            <form onSubmit={submit} className="flex gap-2 border-t border-hairline p-4">
+                            <form onSubmit={submit} className="flex items-center gap-2 border-t border-hairline p-4">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/gif,image/webp"
+                                    className="hidden"
+                                    onChange={onImageSelected}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="shrink-0"
+                                    disabled={processing || uploadingImage}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    aria-label="Kirim gambar"
+                                >
+                                    <ImagePlus className="h-4 w-4" />
+                                </Button>
                                 <Input
                                     value={data.message}
                                     onChange={(e) => setData('message', e.target.value)}
                                     placeholder="Ketik balasan sebagai agen..."
                                     className="flex-1"
                                 />
-                                <Button type="submit" disabled={processing}>
+                                <Button type="submit" disabled={processing || uploadingImage} className="shrink-0">
                                     <Send className="h-4 w-4" />
                                 </Button>
                             </form>
@@ -122,6 +181,14 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                     <dt className="text-muted">Total Pesan</dt>
                                     <dd>{messages.length}</dd>
                                 </div>
+                                {inAgentSession && conversation.agent_session_ends_at && (
+                                    <div className="flex justify-between">
+                                        <dt className="text-muted">Sesi berakhir</dt>
+                                        <dd className="text-right text-xs">
+                                            {new Date(conversation.agent_session_ends_at).toLocaleString('id-ID')}
+                                        </dd>
+                                    </div>
+                                )}
                             </dl>
                         </div>
                         <div className="rounded-lg border border-hairline bg-surface-card p-5 space-y-2">

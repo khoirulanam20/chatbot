@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     Bot,
     Building2,
@@ -10,8 +10,9 @@ import {
     Smartphone,
     Users,
 } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { FlashToast } from '@/components/FlashToast';
+import { NotificationBell } from '@/components/NotificationBell';
 import type { PageProps } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +36,14 @@ export function Layout({ children }: LayoutProps) {
     const user = props.auth.user;
 
     const visibleNav = navItems.filter((item) => user && item.roles.includes(user.role));
+
+    useEffect(() => {
+        if (!user) return;
+        const interval = setInterval(() => {
+            router.reload({ only: ['notifications'] });
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [user?.id]);
 
     return (
         <div className="min-h-screen bg-canvas">
@@ -89,6 +98,9 @@ export function Layout({ children }: LayoutProps) {
                 </div>
             </aside>
             <main className="ml-64 min-h-screen">
+                <header className="sticky top-0 z-20 flex items-center justify-end border-b border-hairline bg-canvas/95 px-8 py-3 backdrop-blur">
+                    <NotificationBell />
+                </header>
                 <div className="p-8">{children}</div>
             </main>
         </div>

@@ -20,12 +20,14 @@
   let isTyping = false;
   let lastMessageId = null;
   let pollingInterval = null;
+  let agentSessionActive = false;
 
   const ICONS = {
     bot: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
     message: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
     close: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     send: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+    attach: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
     thumbsUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>',
     thumbsDown: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>',
     check: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
@@ -127,6 +129,14 @@
     #cb-send-btn:hover { opacity: 0.9; transform: scale(1.04); }
     #cb-send-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
     #cb-send-btn svg { width: 18px; height: 18px; margin-left: 1px; }
+    #cb-attach-btn {
+      background: #fff; border: 1.5px solid #e2e8f0; color: #64748b;
+      width: 40px; height: 40px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+      display: none; align-items: center; justify-content: center;
+    }
+    #cb-attach-btn:hover { border-color: var(--cb-primary, #4F46E5); color: var(--cb-primary, #4F46E5); }
+    #cb-attach-btn svg { width: 18px; height: 18px; }
+    .cb-msg-image { display: block; margin-bottom: 4px; }
     #cb-footer { text-align: center; padding: 6px; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
     .cb-msg b, .cb-msg strong { font-weight: 700; }
     .cb-msg em, .cb-msg i { font-style: italic; }
@@ -160,6 +170,8 @@
         <div id="cb-messages"></div>
         <div id="cb-quick-replies"></div>
         <div id="cb-input-area">
+          <input type="file" id="cb-file-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden />
+          <button id="cb-attach-btn" aria-label="Kirim gambar" type="button">${ICONS.attach}</button>
           <textarea id="cb-input" placeholder="Ketik pesan..." rows="1"></textarea>
           <button id="cb-send-btn" aria-label="Kirim" type="button">${ICONS.send}</button>
         </div>
@@ -169,6 +181,9 @@
     `;
 
     document.body.appendChild(wrapper);
+    if (config.allow_file_upload) {
+      document.getElementById('cb-attach-btn').style.display = 'flex';
+    }
     bindEvents();
   }
 
@@ -176,6 +191,14 @@
     document.getElementById('cb-bubble').addEventListener('click', toggleWindow);
     document.getElementById('cb-close-btn').addEventListener('click', toggleWindow);
     document.getElementById('cb-send-btn').addEventListener('click', sendMessage);
+    document.getElementById('cb-attach-btn').addEventListener('click', function () {
+      document.getElementById('cb-file-input').click();
+    });
+    document.getElementById('cb-file-input').addEventListener('change', function (e) {
+      var file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (file) uploadImage(file);
+    });
     document.getElementById('cb-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -216,7 +239,7 @@
         lastMessageId = null;
         if (data.messages && data.messages.length > 0) {
           data.messages.forEach(function (msg) {
-            appendMessage(msg.role, msg.content, msg.id);
+            appendMessage(msg.role, msg.content, msg.id, null, msg.metadata);
             lastMessageId = msg.id;
           });
         } else {
@@ -260,9 +283,10 @@
               return;
             }
             if (!document.querySelector('[data-msg-id="' + msg.id + '"]')) {
-              appendMessage(msg.role, msg.content, msg.id);
+              appendMessage(msg.role, msg.content, msg.id, null, msg.metadata);
               if (msg.id > (lastMessageId || 0)) lastMessageId = msg.id;
             }
+            if (msg.role === 'agent') setAgentSessionStatus(true);
           });
         }
       })
@@ -293,13 +317,39 @@
     }
   }
 
-  function appendMessage(role, content, messageId, tempId) {
+  function setAgentSessionStatus(active) {
+    agentSessionActive = active;
+    const statusEl = document.getElementById('cb-header-status');
+    if (!statusEl) return;
+    if (active) {
+      statusEl.innerHTML = '<span class="cb-status-dot" style="background:#f59e0b"></span>Agen menangani';
+    } else {
+      statusEl.innerHTML = '<span class="cb-status-dot"></span>Online';
+    }
+  }
+
+  function appendMessage(role, content, messageId, tempId, metadata) {
     const container = document.getElementById('cb-messages');
     const div = document.createElement('div');
     div.className = 'cb-msg cb-msg-' + role;
     if (messageId) div.setAttribute('data-msg-id', messageId);
     if (tempId) div.setAttribute('data-temp-id', tempId);
-    div.innerHTML = parseMarkdown(content);
+    if (metadata && metadata.type === 'image' && metadata.url) {
+      const img = document.createElement('img');
+      img.src = metadata.url.startsWith('http') ? metadata.url : BASE_URL + metadata.url;
+      img.alt = 'Gambar';
+      img.className = 'cb-msg-image';
+      img.style.maxWidth = '100%';
+      img.style.borderRadius = '8px';
+      div.appendChild(img);
+      if (content && content !== '[Gambar]') {
+        const cap = document.createElement('div');
+        cap.innerHTML = parseMarkdown(content);
+        div.appendChild(cap);
+      }
+    } else {
+      div.innerHTML = parseMarkdown(content);
+    }
 
     if (role === 'assistant' && messageId) {
       const rating = document.createElement('div');
@@ -346,6 +396,59 @@
     sendMessageText(text);
   }
 
+  function uploadImage(file) {
+    if (!file || isTyping) return;
+    if (file.size > 10 * 1024 * 1024) {
+      appendMessage('assistant', 'Ukuran gambar maksimal 10MB.');
+      return;
+    }
+    var tempId = 'temp_img_' + Date.now();
+    var previewUrl = URL.createObjectURL(file);
+    appendMessage('user', '[Gambar]', null, tempId, { type: 'image', url: previewUrl });
+    showTyping();
+
+    var form = new FormData();
+    form.append('bot_id', BOT_ID);
+    form.append('image', file);
+    if (sessionId) form.append('session_id', sessionId);
+
+    fetch(BASE_URL + '/api/chat/image', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      body: form,
+    })
+      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+      .then(function (result) {
+        hideTyping();
+        URL.revokeObjectURL(previewUrl);
+        if (!result.ok) {
+          appendMessage('assistant', result.data.error || 'Gagal mengunggah gambar.');
+          return;
+        }
+        var data = result.data;
+        if (data.session_id && !sessionId) {
+          sessionId = data.session_id;
+          sessionStorage.setItem('cb_session_' + BOT_ID, sessionId);
+        }
+        if (data.message_id) {
+          var tempEl = document.querySelector('[data-temp-id="' + tempId + '"]');
+          if (tempEl) {
+            tempEl.setAttribute('data-msg-id', data.message_id);
+            if (data.metadata && data.metadata.url) {
+              var img = tempEl.querySelector('img');
+              if (img) img.src = data.metadata.url.startsWith('http') ? data.metadata.url : BASE_URL + data.metadata.url;
+            }
+          }
+          lastMessageId = data.message_id;
+        }
+      })
+      .catch(function () {
+        hideTyping();
+        URL.revokeObjectURL(previewUrl);
+        appendMessage('assistant', 'Gagal mengunggah gambar. Silakan coba lagi.');
+      });
+  }
+
   function sendMessageText(text) {
     const tempId = 'temp_' + Date.now();
     appendMessage('user', text, null, tempId);
@@ -370,8 +473,8 @@
         }
         if (data.message_id) lastMessageId = data.message_id;
         appendMessage('assistant', data.message || 'Maaf, terjadi kesalahan.', data.message_id);
-        if (data.handoff) {
-          appendMessage('assistant', 'Menghubungkan ke agen kami...');
+        if (data.handoff || data.agent_session) {
+          setAgentSessionStatus(true);
         }
       })
       .catch(function () {

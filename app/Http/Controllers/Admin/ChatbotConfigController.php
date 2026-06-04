@@ -58,6 +58,10 @@ class ChatbotConfigController extends Controller
                 : [],
             'avatar'    => $avatarPath,
             'is_active' => $request->boolean('is_active', true),
+            'settings'  => [
+                'agent_session_minutes' => 30,
+                'agent_session_message' => \App\Services\AgentSessionService::DEFAULT_HOLD_MESSAGE,
+            ],
         ]);
 
         BotEmbedConfig::create([
@@ -88,10 +92,17 @@ class ChatbotConfigController extends Controller
             'language'         => 'required|string|max:10',
             'fallback_message' => 'nullable|string',
             'handoff_triggers' => 'nullable|string',
-            'avatar'           => 'nullable|image|max:2048',
+            'avatar'                 => 'nullable|image|max:2048',
+            'agent_session_minutes'  => 'nullable|integer|min:1|max:1440',
+            'agent_session_message'  => 'nullable|string|max:500',
         ]);
 
         $data = $request->only(['name', 'system_prompt', 'model', 'temperature', 'max_context', 'language', 'fallback_message']);
+        $data['settings'] = array_merge($chatbot->settings ?? [], [
+            'agent_session_minutes' => (int) ($request->agent_session_minutes ?? 30),
+            'agent_session_message' => $request->agent_session_message
+                ?: \App\Services\AgentSessionService::DEFAULT_HOLD_MESSAGE,
+        ]);
         $data['is_active']        = $request->boolean('is_active');
         $data['handoff_triggers'] = $request->handoff_triggers
             ? array_map('trim', explode("\n", $request->handoff_triggers))

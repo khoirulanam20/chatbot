@@ -1,6 +1,7 @@
 import { FormEventHandler } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Layout } from '@/components/Layout';
+import { WebhookUrlField } from '@/components/WebhookUrlField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,10 +33,7 @@ export default function WaEdit({ waInstance, chatbots, webhookUrl }: Props) {
                 <Link href="/admin/wa" className="text-sm text-muted">← Kembali</Link>
                 <form onSubmit={submit} className="space-y-4 rounded-lg border border-hairline bg-surface-card p-6">
                     <h1 className="font-display text-lg font-semibold">Edit WA Instance</h1>
-                    <div className="rounded-lg bg-surface-soft p-3 text-sm">
-                        <p className="text-muted">Webhook URL</p>
-                        <p className="break-all font-mono text-xs">{webhookUrl}</p>
-                    </div>
+                    <WebhookUrlField url={webhookUrl} />
                     <div>
                         <Label>Chatbot *</Label>
                         <select value={data.chatbot_id} onChange={(e) => setData('chatbot_id', e.target.value)} className="mt-1 flex h-10 w-full rounded-md border border-hairline px-3 text-sm">

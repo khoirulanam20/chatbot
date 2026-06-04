@@ -7,12 +7,21 @@ use App\Models\AgentHandoff;
 use App\Models\Chatbot;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\User;
+use App\Notifications\ConversationAssignedNotification;
+use App\Services\AgentSessionService;
+use App\Services\ChatImageService;
 use App\Services\WaChateryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ConversationController extends Controller
 {
+    public function __construct(
+        private AgentSessionService $agentSession,
+        private ChatImageService $chatImageService
+    ) {}
+
     public function index(Request $request)
     {
         $chatbotIds = Chatbot::pluck('id');
@@ -74,6 +83,9 @@ class ConversationController extends Controller
             'content'         => $request->message,
         ]);
 
+        $agent = Auth::user();
+        $this->agentSession->startSession($conversation, $agent instanceof User ? $agent : null);
+
         $conversation->update(['last_message_at' => now()]);
 
         if ($conversation->channel === 'whatsapp') {
@@ -90,6 +102,46 @@ class ConversationController extends Controller
         return back()->with('success', 'Pesan terkirim.');
     }
 
+    public function sendImage(Request $request, Conversation $conversation)
+    {
+        $request->validate([
+            'image'   => 'required|image|mimes:jpeg,png,gif,webp|max:10240',
+            'caption' => 'nullable|string|max:500',
+        ]);
+
+        $conversation->load('chatbot');
+
+        try {
+            $stored = $this->chatImageService->store(
+                $request->file('image'),
+                $conversation->chatbot->tenant_id,
+                $conversation->id
+            );
+        } catch (\Throwable $e) {
+            return back()->withErrors(['image' => $e->getMessage()]);
+        }
+
+        $caption = $request->caption ?: '[Gambar]';
+
+        Message::create([
+            'conversation_id' => $conversation->id,
+            'role'            => 'agent',
+            'content'         => $caption,
+            'metadata'        => [
+                'type' => 'image',
+                'url'  => $stored['url'],
+                'mime' => $stored['mime'],
+                'size' => $stored['size'],
+            ],
+        ]);
+
+        $agent = Auth::user();
+        $this->agentSession->startSession($conversation, $agent instanceof User ? $agent : null);
+        $conversation->update(['last_message_at' => now()]);
+
+        return back()->with('success', 'Gambar terkirim.');
+    }
+
     public function updateStatus(Request $request, Conversation $conversation)
     {
         $request->validate(['status' => 'required|in:open,resolved,spam,handoff']);
@@ -102,26 +154,30 @@ class ConversationController extends Controller
     {
         $request->validate(['agent_id' => 'nullable|exists:users,id']);
 
-        $conversation->update([
-            'assigned_agent_id' => $request->agent_id,
-            'status'            => 'handoff',
-            'is_ai_active'      => false,
-        ]);
+        $agent = $request->agent_id ? User::find($request->agent_id) : null;
+
+        if ($agent) {
+            $this->agentSession->startSession($conversation, $agent);
+        } else {
+            $conversation->update(['assigned_agent_id' => null]);
+        }
 
         AgentHandoff::updateOrCreate(
             ['conversation_id' => $conversation->id],
             ['agent_id' => $request->agent_id, 'reason' => 'Manual assignment by admin']
         );
 
+        if ($agent) {
+            $conversation->load(['contact', 'chatbot']);
+            $agent->notify(new ConversationAssignedNotification($conversation));
+        }
+
         return back()->with('success', 'Percakapan berhasil di-assign ke agen.');
     }
 
     public function resumeAI(Conversation $conversation)
     {
-        $conversation->update([
-            'status'       => 'open',
-            'is_ai_active' => true,
-        ]);
+        $this->agentSession->endSession($conversation, resumeAi: true);
 
         return back()->with('success', 'AI kembali aktif untuk percakapan ini.');
     }

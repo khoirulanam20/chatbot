@@ -24,7 +24,11 @@ class WaInstanceController extends Controller
     public function create()
     {
         $chatbots = Chatbot::all();
-        return inertia('wa/Create', ['chatbots' => $chatbots]);
+
+        return inertia('wa/Create', [
+            'chatbots'   => $chatbots,
+            'webhookUrl' => $this->chatery->getWebhookUrl(),
+        ]);
     }
 
     public function store(Request $request)

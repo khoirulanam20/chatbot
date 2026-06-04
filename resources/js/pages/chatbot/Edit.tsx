@@ -21,11 +21,16 @@ interface Props {
             greeting?: string;
             quick_replies?: string[];
         };
+        settings?: {
+            agent_session_minutes?: number;
+            agent_session_message?: string;
+        };
         embedConfig?: {
             primary_color?: string;
             position?: string;
             greeting?: string;
             quick_replies?: string[];
+            allow_file_upload?: boolean;
         };
     };
     tenants: unknown[];
@@ -51,6 +56,9 @@ export default function ChatbotEdit({ chatbot }: Props) {
         position: embed?.position ?? 'bottom-right',
         greeting: embed?.greeting ?? '',
         quick_replies: Array.isArray(embed?.quick_replies) ? embed.quick_replies.join('\n') : '',
+        allow_file_upload: embed?.allow_file_upload ?? false,
+        agent_session_minutes: String(chatbot.settings?.agent_session_minutes ?? 30),
+        agent_session_message: chatbot.settings?.agent_session_message ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -113,6 +121,33 @@ export default function ChatbotEdit({ chatbot }: Props) {
                             <Label>Kata Kunci Handoff</Label>
                             <textarea rows={3} value={data.handoff_triggers} onChange={(e) => setData('handoff_triggers', e.target.value)} className="mt-1 w-full rounded-md border border-hairline px-3 py-2 text-sm" />
                         </div>
+                        <hr className="border-hairline" />
+                        <h2 className="font-semibold">Sesi Agen</h2>
+                        <p className="text-sm text-muted">
+                            Saat agen ditugaskan atau membalas, AI tidak ikut campur hingga durasi sesi berakhir (lalu AI aktif kembali otomatis).
+                        </p>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <Label>Durasi sesi agen (menit)</Label>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={1440}
+                                    value={data.agent_session_minutes}
+                                    onChange={(e) => setData('agent_session_minutes', e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <Label>Pesan tunggu agen</Label>
+                            <Input
+                                value={data.agent_session_message}
+                                onChange={(e) => setData('agent_session_message', e.target.value)}
+                                className="mt-1"
+                                placeholder="Agen kami sedang menangani percakapan Anda..."
+                            />
+                        </div>
                         <label className="flex items-center gap-2 text-sm">
                             <input type="checkbox" checked={data.is_active} onChange={(e) => setData('is_active', e.target.checked)} />
                             Chatbot aktif
@@ -140,6 +175,14 @@ export default function ChatbotEdit({ chatbot }: Props) {
                             <Label>Quick Replies</Label>
                             <textarea rows={4} value={data.quick_replies} onChange={(e) => setData('quick_replies', e.target.value)} className="mt-1 w-full rounded-md border border-hairline px-3 py-2 text-sm" />
                         </div>
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={data.allow_file_upload}
+                                onChange={(e) => setData('allow_file_upload', e.target.checked)}
+                            />
+                            Izinkan pengunjung mengirim gambar di widget
+                        </label>
                         <div className="flex gap-3">
                             <Button type="submit" disabled={processing}>Simpan Perubahan</Button>
                             <Button type="button" variant="outline" asChild>

@@ -31,7 +31,8 @@ class BotConfigController extends Controller
             'quick_replies' => $config?->quick_replies ?? [],
             'branding'      => $config?->branding ?? [],
             'sound_enabled' => $config?->sound_enabled ?? false,
-            'auto_open_delay' => $config?->auto_open_delay,
+            'auto_open_delay'   => $config?->auto_open_delay,
+            'allow_file_upload' => (bool) ($config?->allow_file_upload ?? false),
         ]);
     }
 }
