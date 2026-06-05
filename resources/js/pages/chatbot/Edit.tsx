@@ -25,6 +25,9 @@ interface Props {
         settings?: {
             agent_session_minutes?: number;
             agent_session_message?: string;
+            takeover_keywords?: string[];
+            takeover_idle_minutes?: number;
+            takeover_hold_message?: string;
         };
         embedConfig?: {
             primary_color?: string;
@@ -47,9 +50,11 @@ export default function ChatbotEdit({ chatbot }: Props) {
         max_context: String(chatbot.max_context ?? 10),
         language: chatbot.language ?? 'id',
         fallback_message: chatbot.fallback_message ?? '',
-        handoff_triggers: Array.isArray(chatbot.handoff_triggers)
-            ? chatbot.handoff_triggers.join('\n')
-            : '',
+        takeover_keywords: Array.isArray(chatbot.settings?.takeover_keywords)
+            ? chatbot.settings.takeover_keywords.join('\n')
+            : Array.isArray(chatbot.handoff_triggers)
+              ? chatbot.handoff_triggers.join('\n')
+              : '',
         is_active: chatbot.is_active ?? true,
         avatar: null as File | null,
         primary_color: embed?.primary_color ?? '#4F46E5',
@@ -59,6 +64,10 @@ export default function ChatbotEdit({ chatbot }: Props) {
         allow_file_upload: embed?.allow_file_upload ?? false,
         agent_session_minutes: String(chatbot.settings?.agent_session_minutes ?? 30),
         agent_session_message: chatbot.settings?.agent_session_message ?? '',
+        takeover_idle_minutes: String(
+            chatbot.settings?.takeover_idle_minutes ?? chatbot.settings?.agent_session_minutes ?? 30
+        ),
+        takeover_hold_message: chatbot.settings?.takeover_hold_message ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -114,30 +123,47 @@ export default function ChatbotEdit({ chatbot }: Props) {
                             <Label>Pesan Fallback</Label>
                             <Input value={data.fallback_message} onChange={(e) => setData('fallback_message', e.target.value)} className="mt-1" />
                         </div>
-                        <div>
-                            <Label>Kata Kunci Handoff</Label>
-                            <textarea rows={3} value={data.handoff_triggers} onChange={(e) => setData('handoff_triggers', e.target.value)} className="mt-1 w-full rounded-md border border-hairline px-3 py-2 text-sm" />
-                        </div>
                         <hr className="border-hairline" />
-                        <h2 className="font-semibold">Sesi Agen</h2>
+                        <h2 className="font-semibold">Takeover Admin (WhatsApp)</h2>
                         <p className="text-sm text-muted">
-                            Saat agen ditugaskan atau membalas, AI tidak ikut campur hingga durasi sesi berakhir (lalu AI aktif kembali otomatis).
+                            Saat takeover aktif, AI tidak membalas. AI aktif kembali otomatis setelah tidak ada pesan
+                            selama durasi idle di bawah.
                         </p>
+                        <div>
+                            <Label>Keyword takeover</Label>
+                            <textarea
+                                rows={3}
+                                value={data.takeover_keywords}
+                                onChange={(e) => setData('takeover_keywords', e.target.value)}
+                                placeholder={'Hubungi Admin\nhubungi cs'}
+                                className="mt-1 w-full rounded-md border border-hairline px-3 py-2 text-sm"
+                            />
+                            <p className="mt-1 text-xs text-muted">Satu keyword per baris. Customer ketik keyword → AI berhenti, admin ditunggu.</p>
+                        </div>
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <Label>Durasi sesi agen (menit)</Label>
+                                <Label>Idle sebelum AI aktif lagi (menit)</Label>
                                 <Input
                                     type="number"
                                     min={1}
                                     max={1440}
-                                    value={data.agent_session_minutes}
-                                    onChange={(e) => setData('agent_session_minutes', e.target.value)}
+                                    value={data.takeover_idle_minutes}
+                                    onChange={(e) => setData('takeover_idle_minutes', e.target.value)}
                                     className="mt-1"
                                 />
                             </div>
                         </div>
                         <div>
-                            <Label>Pesan tunggu agen</Label>
+                            <Label>Pesan saat keyword terdeteksi</Label>
+                            <Input
+                                value={data.takeover_hold_message}
+                                onChange={(e) => setData('takeover_hold_message', e.target.value)}
+                                className="mt-1"
+                                placeholder="Baik, permintaan Anda sudah diteruskan ke admin..."
+                            />
+                        </div>
+                        <div>
+                            <Label>Pesan tunggu agen (opsional, legacy)</Label>
                             <Input
                                 value={data.agent_session_message}
                                 onChange={(e) => setData('agent_session_message', e.target.value)}

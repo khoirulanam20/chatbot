@@ -149,6 +149,37 @@ class SumopodService
         return $result;
     }
 
+    public function chatOnce(
+        array $messages,
+        ?Chatbot $chatbot = null,
+        ?string $overrideModel = null,
+        float $temperature = 0.7,
+        int $maxTokens = 1500
+    ): array {
+        $model = $overrideModel ?? $chatbot?->model ?? $this->chatModel;
+
+        $response = Http::withToken($this->apiKey)
+            ->baseUrl($this->baseUrl)
+            ->timeout(60)
+            ->post('/chat/completions', [
+                'model'       => $model,
+                'messages'    => $messages,
+                'temperature' => $temperature,
+                'max_tokens'  => $maxTokens,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('Sumopod chat completion failed', ['status' => $response->status(), 'body' => $response->body()]);
+            throw new \RuntimeException('Chat completion API request failed: ' . $response->status());
+        }
+
+        return [
+            'content' => $response->json('choices.0.message.content', ''),
+            'tokens'  => $response->json('usage.total_tokens', 0),
+            'model'   => $response->json('model', $model),
+        ];
+    }
+
     public function formatEmbeddingForStorage(array $embedding): string
     {
         return json_encode($embedding);

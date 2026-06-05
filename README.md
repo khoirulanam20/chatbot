@@ -5,7 +5,7 @@ Platform AI Customer Service Chatbot multi-tenant berbasis Laravel 11 dengan RAG
 ## Tech Stack
 
 - **Backend**: Laravel 11 (PHP 8.2+)
-- **Frontend**: Blade + Alpine.js + Tailwind CSS + Livewire
+- **Frontend**: React + Inertia.js + Tailwind CSS (admin)
 - **Database**: MySQL 9.0 (native VECTOR type)
 - **AI Engine**: Sumopod (OpenAI-compatible API)
 - **WhatsApp**: WA Chatery — wa.firstudio.id
@@ -138,8 +138,13 @@ Tambahkan ke website manapun:
 2. Set webhook URL: `https://your-domain.com/api/webhook/whatsapp`
 3. Input API key di Admin → WhatsApp
 
+### Persona & Humanisasi
+- Persona terstruktur per chatbot (peran, gaya, instruksi, larangan)
+- Template personal per user, generator AI dari deskripsi singkat
+- Humanisasi lanjutan: multi-bubble, emoji, pacing, per channel (web/WA)
+
 ### Dashboard Admin
-- Inbox percakapan real-time (Livewire, polling 5s)
+- Inbox percakapan real-time (Inertia, polling)
 - Statistik & grafik tren
 - Assign percakapan ke agen
 - Live handoff AI → Agen
@@ -174,3 +179,7 @@ Masuk ke **Admin → Pengaturan AI** untuk mengkonfigurasi:
 - Model chat
 
 Setiap chatbot dapat override model chat di halaman edit chatbot.
+
+## Deploy Production
+
+Lihat [DEPLOY.md](DEPLOY.md) untuk checklist lengkap (env, migrate, Horizon, scheduler, smoke test).

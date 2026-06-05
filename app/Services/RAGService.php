@@ -13,7 +13,9 @@ class RAGService
 {
     public function __construct(
         private SumopodService $sumopod,
-        private AgentSessionService $agentSession
+        private AgentSessionService $agentSession,
+        private HumanizedResponseService $humanizedResponse,
+        private TakeoverNotificationService $takeoverNotifications
     ) {}
 
     public function processMessage(
@@ -31,14 +33,17 @@ class RAGService
 
         $conversation->refresh();
 
-        if ($this->agentSession->isActive($conversation) || ! $conversation->is_ai_active) {
-            return $this->respondDuringAgentSession($conversation, $chatbot, $userMsg->id);
+        if ($this->agentSession->isInHandoff($conversation) || ! $conversation->is_ai_active) {
+            return $this->respondDuringHandoff($conversation, $chatbot, $userMsg->id, $userMessage);
         }
 
         if (! $chatbot->is_active) {
             $reply = $chatbot->getFallbackMessage();
             $this->saveMessage($conversation, 'assistant', $reply);
-            return ['content' => $reply, 'sources' => [], 'user_message_id' => $userMsg->id];
+            return $this->wrapResponse($reply, $chatbot, $conversation->channel, [
+                'sources' => [],
+                'user_message_id' => $userMsg->id,
+            ]);
         }
 
         if ($this->containsHandoffTrigger($chatbot, $userMessage)) {
@@ -51,9 +56,23 @@ class RAGService
             $queryEmbedding = $sumopod->embed($userMessage);
             $chunks         = $this->semanticSearch($chatbot, $queryEmbedding);
             $context        = $this->buildContext($chunks);
+            $channel        = $conversation->channel ?? 'web';
             $history        = $this->getConversationHistory($conversation, $chatbot->max_context);
-            $messages       = $this->buildMessages($chatbot, $history, $context, $userMessage);
-            $result         = $sumopod->chat($messages, $chatbot);
+            $messages       = $this->buildMessages($chatbot, $history, $context, $userMessage, $channel);
+            $humanizeActive = $chatbot->isHumanizeEnabledFor($channel);
+
+            if ($humanizeActive) {
+                $temperature = min(0.9, ($chatbot->temperature ?? 0.7) + 0.1);
+                $result = $sumopod->chatOnce($messages, $chatbot, temperature: $temperature);
+            } else {
+                $result = $sumopod->chat($messages, $chatbot);
+            }
+
+            $processed = $this->humanizedResponse->process(
+                $result['content'],
+                $chatbot->getHumanizeSettings(),
+                $humanizeActive
+            );
 
             $sources = array_map(fn ($c) => [
                 'document_name' => $c->document->name ?? '',
@@ -63,19 +82,19 @@ class RAGService
             $message = $this->saveMessage(
                 $conversation,
                 'assistant',
-                $result['content'],
+                $processed['content'],
                 $result['tokens'],
                 $sources
             );
 
             $conversation->update(['last_message_at' => now()]);
 
-            return [
-                'content'         => $result['content'],
+            return $this->wrapResponse($processed['content'], $chatbot, $channel, [
+                'chunks'          => $processed['chunks'],
                 'sources'         => $sources,
                 'message_id'      => $message->id,
                 'user_message_id' => $userMsg->id,
-            ];
+            ]);
         } catch (\Exception $e) {
             Log::error('RAG pipeline error', [
                 'conversation_id' => $conversation->id,
@@ -85,8 +104,26 @@ class RAGService
             $fallback = $chatbot->getFallbackMessage();
             $this->saveMessage($conversation, 'assistant', $fallback);
 
-            return ['content' => $fallback, 'sources' => []];
+            return $this->wrapResponse($fallback, $chatbot, $conversation->channel ?? 'web', [
+                'sources' => [],
+            ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function wrapResponse(string $content, Chatbot $chatbot, string $channel, array $extra = []): array
+    {
+        $humanize = $chatbot->getHumanizeSettings();
+        $chunks = $extra['chunks'] ?? [$content];
+
+        return array_merge($extra, [
+            'content'      => $content,
+            'chunks'       => $chunks,
+            'pacing_ms'    => $chatbot->isHumanizeEnabledFor($channel) ? (int) $humanize['pacing_ms'] : 0,
+        ]);
     }
 
     private function semanticSearch(Chatbot $chatbot, array $queryEmbedding, int $limit = 5): array
@@ -162,12 +199,18 @@ class RAGService
         Chatbot $chatbot,
         \Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection|array $history,
         string $context,
-        string $userMessage
+        string $userMessage,
+        string $channel = 'web'
     ): array {
         $systemPrompt = $chatbot->getEffectiveSystemPrompt();
 
         if (! empty($context)) {
             $systemPrompt .= "\n\n" . $context;
+        }
+
+        $humanizeBlock = $chatbot->composeHumanizeBlock($channel);
+        if ($humanizeBlock !== '') {
+            $systemPrompt .= "\n\n" . $humanizeBlock;
         }
 
         $systemPrompt .= "\n\nJika tidak ada informasi yang relevan, katakan dengan jujur bahwa kamu tidak tahu.";
@@ -197,11 +240,12 @@ class RAGService
 
     private function containsHandoffTrigger(Chatbot $chatbot, string $message): bool
     {
-        $triggers = $chatbot->handoff_triggers ?? [];
+        $triggers = $chatbot->getTakeoverKeywords();
         $messageLower = strtolower($message);
 
         foreach ($triggers as $trigger) {
-            if (str_contains($messageLower, strtolower($trigger))) {
+            $trigger = trim((string) $trigger);
+            if ($trigger !== '' && str_contains($messageLower, strtolower($trigger))) {
                 return true;
             }
         }
@@ -211,39 +255,44 @@ class RAGService
 
     private function triggerHandoff(Conversation $conversation, Chatbot $chatbot, string $userMessage): array
     {
-        $this->agentSession->startSession($conversation);
+        $this->agentSession->enterHandoffByKeyword($conversation, $userMessage);
 
         \App\Models\AgentHandoff::create([
             'conversation_id' => $conversation->id,
-            'reason'          => 'Triggered by user request',
+            'reason'          => 'Triggered by takeover keyword',
             'trigger_keyword' => $userMessage,
         ]);
 
-        $reply = 'Baik, saya akan menghubungkan Anda dengan agen kami. Mohon tunggu sebentar...';
-        $this->saveMessage($conversation, 'assistant', $reply);
-        $conversation->update(['last_message_at' => now()]);
+        $this->takeoverNotifications->notifyTakeoverRequested($conversation, $userMessage);
 
-        return [
-            'content'        => $reply,
-            'sources'        => [],
-            'handoff'        => true,
-            'agent_session'  => true,
-        ];
+        $reply = $this->agentSession->getTakeoverHoldMessage($chatbot);
+        $this->saveMessage($conversation, 'assistant', $reply);
+        $this->agentSession->touchActivity($conversation);
+
+        return $this->wrapResponse($reply, $chatbot, $conversation->channel ?? 'web', [
+            'sources'       => [],
+            'handoff'       => true,
+            'agent_session' => true,
+        ]);
     }
 
-    private function respondDuringAgentSession(
+    private function respondDuringHandoff(
         Conversation $conversation,
         Chatbot $chatbot,
-        int $userMessageId
+        int $userMessageId,
+        string $userMessage
     ): array {
-        $holdMessage = $this->agentSession->getHoldMessage($chatbot);
-        $conversation->update(['last_message_at' => now()]);
+        $this->agentSession->touchActivity($conversation);
+        $this->takeoverNotifications->notifyNewMessageDuringHandoff($conversation, $userMessage);
 
         return [
-            'content'         => $holdMessage,
+            'content'         => '',
+            'chunks'          => [],
             'sources'         => [],
             'user_message_id' => $userMessageId,
             'agent_session'   => true,
+            'silent'          => true,
+            'pacing_ms'       => 0,
         ];
     }
 

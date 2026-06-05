@@ -13,11 +13,16 @@ class AgentSessionService
 
     public const DEFAULT_HOLD_MESSAGE = 'Agen kami sedang menangani percakapan Anda. Mohon tunggu sebentar.';
 
+    public const DEFAULT_TAKEOVER_HOLD_MESSAGE = 'Baik, permintaan Anda sudah diteruskan ke admin. Mohon tunggu sebentar...';
+
     public function getSessionMinutes(Chatbot $chatbot): int
     {
-        $minutes = (int) ($chatbot->settings['agent_session_minutes'] ?? self::DEFAULT_MINUTES);
+        return $chatbot->getTakeoverIdleMinutes();
+    }
 
-        return max(1, min(1440, $minutes));
+    public function getIdleMinutes(Chatbot $chatbot): int
+    {
+        return $chatbot->getTakeoverIdleMinutes();
     }
 
     public function getHoldMessage(Chatbot $chatbot): string
@@ -29,31 +34,56 @@ class AgentSessionService
             : self::DEFAULT_HOLD_MESSAGE;
     }
 
+    public function getTakeoverHoldMessage(Chatbot $chatbot): string
+    {
+        return $chatbot->getTakeoverHoldMessage();
+    }
+
+    public function isInHandoff(Conversation $conversation): bool
+    {
+        return ! $conversation->is_ai_active && $conversation->status === 'handoff';
+    }
+
     public function isActive(Conversation $conversation): bool
     {
-        if (! $conversation->agent_session_ends_at) {
+        if (! $this->isInHandoff($conversation)) {
             return false;
-        }
-
-        if ($conversation->agent_session_ends_at->isFuture()) {
-            return true;
         }
 
         $this->expireIfDue($conversation);
 
-        return false;
+        return $this->isInHandoff($conversation->fresh());
+    }
+
+    public function enterHandoffByKeyword(Conversation $conversation, string $keyword): void
+    {
+        $conversation->update([
+            'is_ai_active'             => false,
+            'status'                   => 'handoff',
+            'assigned_agent_id'        => null,
+            'agent_session_started_at' => now(),
+            'agent_session_ends_at'    => null,
+        ]);
+    }
+
+    public function takeOver(Conversation $conversation, User $agent): void
+    {
+        $conversation->update([
+            'is_ai_active'             => false,
+            'status'                   => 'handoff',
+            'assigned_agent_id'        => $agent->id,
+            'agent_session_started_at' => now(),
+            'agent_session_ends_at'    => null,
+        ]);
     }
 
     public function startSession(Conversation $conversation, ?User $agent = null): void
     {
-        $chatbot = $conversation->chatbot ?? $conversation->load('chatbot')->chatbot;
-        $minutes = $this->getSessionMinutes($chatbot);
-
         $updates = [
-            'is_ai_active'              => false,
-            'status'                    => 'handoff',
-            'agent_session_started_at'  => now(),
-            'agent_session_ends_at'       => now()->addMinutes($minutes),
+            'is_ai_active'             => false,
+            'status'                   => 'handoff',
+            'agent_session_started_at' => now(),
+            'agent_session_ends_at'    => null,
         ];
 
         if ($agent) {
@@ -61,6 +91,28 @@ class AgentSessionService
         }
 
         $conversation->update($updates);
+    }
+
+    public function touchActivity(Conversation $conversation): void
+    {
+        $conversation->update(['last_message_at' => now()]);
+    }
+
+    public function canAgentReply(Conversation $conversation, User $user): bool
+    {
+        if (! $this->isInHandoff($conversation) && $conversation->is_ai_active) {
+            return $user->isOperator();
+        }
+
+        if (! $this->isInHandoff($conversation)) {
+            return false;
+        }
+
+        if ($conversation->assigned_agent_id === null) {
+            return $user->isOperator();
+        }
+
+        return $conversation->assigned_agent_id === $user->id || $user->isAdmin();
     }
 
     public function endSession(Conversation $conversation, bool $resumeAi = true): void
@@ -84,7 +136,20 @@ class AgentSessionService
 
     public function expireIfDue(Conversation $conversation): bool
     {
-        if (! $conversation->agent_session_ends_at || $conversation->agent_session_ends_at->isFuture()) {
+        if (! $this->isInHandoff($conversation)) {
+            return false;
+        }
+
+        $chatbot = $conversation->chatbot ?? $conversation->load('chatbot')->chatbot;
+
+        if (! $conversation->last_message_at) {
+            return false;
+        }
+
+        $idleMinutes = $this->getIdleMinutes($chatbot);
+        $expiresAt   = $conversation->last_message_at->copy()->addMinutes($idleMinutes);
+
+        if ($expiresAt->isFuture()) {
             return false;
         }
 
@@ -98,9 +163,9 @@ class AgentSessionService
         $count = 0;
 
         Conversation::query()
-            ->whereNotNull('agent_session_ends_at')
-            ->where('agent_session_ends_at', '<', now())
             ->where('is_ai_active', false)
+            ->where('status', 'handoff')
+            ->whereNotNull('last_message_at')
             ->chunkById(100, function ($conversations) use (&$count) {
                 foreach ($conversations as $conversation) {
                     if ($this->expireIfDue($conversation)) {
@@ -110,5 +175,18 @@ class AgentSessionService
             });
 
         return $count;
+    }
+
+    public function getIdleExpiresAt(Conversation $conversation): ?\Illuminate\Support\Carbon
+    {
+        if (! $this->isInHandoff($conversation) || ! $conversation->last_message_at) {
+            return null;
+        }
+
+        $chatbot = $conversation->relationLoaded('chatbot')
+            ? $conversation->getRelation('chatbot')
+            : ($conversation->chatbot ?? $conversation->load('chatbot')->chatbot);
+
+        return $conversation->last_message_at->copy()->addMinutes($this->getIdleMinutes($chatbot));
     }
 }

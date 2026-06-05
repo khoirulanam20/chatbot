@@ -449,6 +449,24 @@
       });
   }
 
+  function appendChunksAnimated(chunks, messageId, pacingMs) {
+    var index = 0;
+    function next() {
+      if (index >= chunks.length) return;
+      var id = index === chunks.length - 1 ? messageId : null;
+      appendMessage('assistant', chunks[index], id);
+      index++;
+      if (index < chunks.length) {
+        showTyping();
+        setTimeout(function () {
+          hideTyping();
+          next();
+        }, pacingMs);
+      }
+    }
+    next();
+  }
+
   function sendMessageText(text) {
     const tempId = 'temp_' + Date.now();
     appendMessage('user', text, null, tempId);
@@ -472,7 +490,12 @@
           if (tempEl) tempEl.setAttribute('data-msg-id', data.user_message_id);
         }
         if (data.message_id) lastMessageId = data.message_id;
-        appendMessage('assistant', data.message || 'Maaf, terjadi kesalahan.', data.message_id);
+        var chunks = data.message_chunks;
+        if (chunks && chunks.length > 1 && data.pacing_ms > 0) {
+          appendChunksAnimated(chunks, data.message_id, data.pacing_ms);
+        } else {
+          appendMessage('assistant', data.message || 'Maaf, terjadi kesalahan.', data.message_id);
+        }
         if (data.handoff || data.agent_session) {
           setAgentSessionStatus(true);
         }

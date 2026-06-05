@@ -38,6 +38,11 @@ class User extends Authenticatable
         return $this->hasMany(Conversation::class, 'assigned_agent_id');
     }
 
+    public function personaTemplates(): HasMany
+    {
+        return $this->hasMany(PersonaTemplate::class);
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';

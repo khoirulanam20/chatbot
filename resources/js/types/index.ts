@@ -41,12 +41,37 @@ export interface Paginated<T> {
     links: { url: string | null; label: string; active: boolean }[];
 }
 
+export interface PersonaHumanizeSettings {
+    enabled?: boolean;
+    channels?: ('whatsapp' | 'web')[];
+    emoji_level?: 'none' | 'minimal' | 'medium' | 'often';
+    message_length?: 'short' | 'medium' | 'long';
+    split_bubbles?: boolean;
+    pacing_ms?: number;
+    use_fillers?: boolean;
+    avoid_markdown?: boolean;
+}
+
 export interface ChatbotPersona {
     role?: string;
     tone?: 'ramah' | 'formal' | 'profesional' | 'santai' | string;
     instructions?: string;
     restrictions?: string;
     greeting_style?: string;
+    humanize?: PersonaHumanizeSettings;
+}
+
+export interface PersonaTemplateRecord {
+    id: number;
+    name: string;
+    description?: string;
+    role?: string;
+    tone?: string;
+    instructions?: string;
+    restrictions?: string;
+    greeting_style?: string;
+    user?: { id: number; name: string };
+    can_delete?: boolean;
 }
 
 export interface Chatbot {

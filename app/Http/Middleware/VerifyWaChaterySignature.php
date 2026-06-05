@@ -13,6 +13,10 @@ class VerifyWaChaterySignature
         $secret = config('services.chatery.webhook_secret');
 
         if (empty($secret)) {
+            if (app()->environment('production')) {
+                return response()->json(['error' => 'Webhook not configured'], 503);
+            }
+
             return $next($request);
         }
 

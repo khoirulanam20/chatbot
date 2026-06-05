@@ -4,8 +4,11 @@ namespace App\Jobs;
 
 use App\Models\Contact;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\WaInstance;
+use App\Services\AgentSessionService;
 use App\Services\RAGService;
+use App\Services\TakeoverNotificationService;
 use App\Services\WaChateryService;
 use App\Services\WaOutboundService;
 use Illuminate\Bus\Queueable;
@@ -13,13 +16,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ProcessWhatsAppMessageJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 120;
+    public int $timeout = 180;
     public int $tries   = 2;
 
     public function __construct(
@@ -29,8 +33,12 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
         $this->onQueue('whatsapp');
     }
 
-    public function handle(RAGService $rag, WaOutboundService $waOutbound): void
-    {
+    public function handle(
+        RAGService $rag,
+        WaOutboundService $waOutbound,
+        AgentSessionService $agentSession,
+        TakeoverNotificationService $takeoverNotifications
+    ): void {
         $waInstance = WaInstance::find($this->waInstanceId);
 
         if (! $waInstance || ! $waInstance->chatbot) {
@@ -39,11 +47,19 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
         }
 
         $chatbot = $waInstance->chatbot;
-        $from    = $this->payload['from'] ?? '';
-        $text    = $this->payload['message'] ?? '';
+        $from      = $this->payload['from'] ?? '';
+        $text      = $this->payload['message'] ?? '';
+        $messageId = $this->payload['message_id'] ?? null;
 
         if (empty($from) || empty($text)) {
             return;
+        }
+
+        if ($messageId) {
+            $doneKey = "wa_done:{$waInstance->id}:{$messageId}";
+            if (Cache::has($doneKey)) {
+                return;
+            }
         }
 
         $contact = Contact::withoutGlobalScopes()->firstOrCreate(
@@ -78,7 +94,19 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
             ]);
         }
 
-        if (! $conversation->is_ai_active) {
+        if ($agentSession->isInHandoff($conversation)) {
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'role'            => 'user',
+                'content'         => $text,
+            ]);
+            $agentSession->touchActivity($conversation);
+            $takeoverNotifications->notifyNewMessageDuringHandoff($conversation, $text);
+
+            if ($messageId) {
+                Cache::put("wa_done:{$waInstance->id}:{$messageId}", true, now()->addDay());
+            }
+
             return;
         }
 
@@ -89,6 +117,30 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
 
         $result = $rag->processMessage($conversation, $text);
 
-        $waOutbound->sendText($waInstance, $from, $result['content']);
+        if (! empty($result['silent']) || ($result['content'] ?? '') === '') {
+            if ($messageId) {
+                Cache::put("wa_done:{$waInstance->id}:{$messageId}", true, now()->addDay());
+            }
+
+            return;
+        }
+
+        $chunks = $result['chunks'] ?? [$result['content']];
+        $humanize = $chatbot->isHumanizeEnabledFor('whatsapp');
+
+        if ($humanize && count($chunks) > 1) {
+            $waOutbound->sendChunks(
+                $waInstance,
+                $from,
+                $chunks,
+                (int) ($result['pacing_ms'] ?? $chatbot->getHumanizeSettings()['pacing_ms'])
+            );
+        } else {
+            $waOutbound->sendText($waInstance, $from, $result['content']);
+        }
+
+        if ($messageId) {
+            Cache::put("wa_done:{$waInstance->id}:{$messageId}", true, now()->addDay());
+        }
     }
 }

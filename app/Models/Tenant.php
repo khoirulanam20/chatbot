@@ -36,6 +36,11 @@ class Tenant extends Model
         return $this->hasMany(WaInstance::class);
     }
 
+    public function personaTemplates(): HasMany
+    {
+        return $this->hasMany(PersonaTemplate::class);
+    }
+
     /**
      * Ambil konfigurasi AI tenant (hanya key yang sudah diisi).
      */

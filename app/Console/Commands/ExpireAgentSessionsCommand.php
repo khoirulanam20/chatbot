@@ -9,7 +9,7 @@ class ExpireAgentSessionsCommand extends Command
 {
     protected $signature = 'conversations:expire-agent-sessions';
 
-    protected $description = 'Akhiri sesi agen yang sudah lewat dan aktifkan kembali AI';
+    protected $description = 'Aktifkan kembali AI setelah idle takeover (dari pesan terakhir)';
 
     public function handle(AgentSessionService $agentSession): int
     {

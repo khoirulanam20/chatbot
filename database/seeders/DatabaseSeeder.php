@@ -54,8 +54,15 @@ class DatabaseSeeder extends Seeder
             'max_context'     => 10,
             'language'        => 'id',
             'fallback_message' => 'Maaf, saya tidak dapat menemukan jawaban untuk pertanyaan Anda. Apakah Anda ingin saya hubungkan dengan agen kami?',
-            'handoff_triggers' => ['agen', 'manusia', 'cs', 'operator', 'bicara dengan orang'],
+            'handoff_triggers' => ['Hubungi Admin', 'agen', 'manusia', 'cs', 'operator', 'bicara dengan orang'],
             'is_active'       => true,
+            'settings'        => [
+                'takeover_keywords' => ['Hubungi Admin', 'hubungi admin', 'cs'],
+                'takeover_idle_minutes' => 30,
+                'takeover_hold_message' => 'Baik, permintaan Anda sudah diteruskan ke admin. Mohon tunggu sebentar...',
+                'agent_session_minutes' => 30,
+                'agent_session_message' => 'Agen kami sedang menangani percakapan Anda. Mohon tunggu sebentar.',
+            ],
         ]);
 
         BotEmbedConfig::create([

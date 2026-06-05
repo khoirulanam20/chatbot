@@ -1,5 +1,5 @@
 import { ChangeEventHandler, FormEventHandler, useEffect, useRef, useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Bot, Headphones, ImagePlus, Send, User } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -9,21 +9,43 @@ import { Label } from '@/components/ui/label';
 import type { Conversation, Message, User as AppUser } from '@/types';
 
 interface Props {
-    conversation: Conversation & { is_ai_active?: boolean };
+    conversation: Conversation & {
+        is_ai_active?: boolean;
+        idle_expires_at?: string | null;
+        assigned_agent_id?: number | null;
+    };
     messages: Message[];
     agents: AppUser[];
 }
 
 export default function ConversationsShow({ conversation, messages, agents }: Props) {
+    const { auth } = usePage().props as { auth: { user: { id: number; role: string } | null } };
+    const currentUserId = auth.user?.id;
+    const isOperator = auth.user?.role === 'operator' || auth.user?.role === 'admin' || auth.user?.role === 'super_admin';
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { data, setData, post, processing, reset } = useForm({ message: '' });
     const [uploadingImage, setUploadingImage] = useState(false);
     const assignForm = useForm({ agent_id: '' });
-    const inAgentSession =
-        conversation.agent_session_ends_at &&
-        new Date(conversation.agent_session_ends_at) > new Date();
-    const canReply = inAgentSession || conversation.is_ai_active === false || conversation.status === 'handoff';
+
+    const inHandoff = conversation.is_ai_active === false || conversation.status === 'handoff';
+    const waitingForAdmin = inHandoff && !conversation.assigned_agent_id;
+    const assignedToMe = conversation.assigned_agent_id === currentUserId;
+    const assignedToOther =
+        inHandoff && conversation.assigned_agent_id && conversation.assigned_agent_id !== currentUserId;
+
+    const isAdmin = auth.user?.role === 'admin' || auth.user?.role === 'super_admin';
+
+    const canReply =
+        isOperator &&
+        (conversation.is_ai_active === true ||
+            waitingForAdmin ||
+            assignedToMe ||
+            (isAdmin && inHandoff));
+
+    const canTakeOver =
+        isOperator && inHandoff && (waitingForAdmin || (assignedToOther && isAdmin));
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -90,9 +112,19 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
-                                {inAgentSession && (
+                                {waitingForAdmin && (
                                     <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
-                                        Sesi agen aktif
+                                        Menunggu admin
+                                    </span>
+                                )}
+                                {inHandoff && assignedToMe && (
+                                    <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
+                                        Anda menangani
+                                    </span>
+                                )}
+                                {assignedToOther && (
+                                    <span className="rounded-full bg-muted/20 px-2 py-0.5 text-xs font-medium text-muted">
+                                        Ditangani agen lain
                                     </span>
                                 )}
                                 <StatusBadge status={conversation.status} />
@@ -181,11 +213,11 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                     <dt className="text-muted">Total Pesan</dt>
                                     <dd>{messages.length}</dd>
                                 </div>
-                                {inAgentSession && conversation.agent_session_ends_at && (
+                                {inHandoff && conversation.idle_expires_at && (
                                     <div className="flex justify-between">
-                                        <dt className="text-muted">Sesi berakhir</dt>
+                                        <dt className="text-muted">AI aktif kembali</dt>
                                         <dd className="text-right text-xs">
-                                            {new Date(conversation.agent_session_ends_at).toLocaleString('id-ID')}
+                                            {new Date(conversation.idle_expires_at).toLocaleString('id-ID')}
                                         </dd>
                                     </div>
                                 )}
@@ -193,6 +225,16 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                         </div>
                         <div className="rounded-lg border border-hairline bg-surface-card p-5 space-y-2">
                             <h3 className="mb-3 font-semibold">Aksi</h3>
+                            {canTakeOver && (
+                                <Button
+                                    className="w-full"
+                                    onClick={() =>
+                                        router.post(`/admin/conversations/${conversation.id}/take-over`)
+                                    }
+                                >
+                                    Ambil Alih
+                                </Button>
+                            )}
                             <Button
                                 variant="secondary"
                                 className="w-full"
@@ -224,11 +266,13 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                     Assign
                                 </Button>
                             </form>
-                            <Button variant="outline" className="w-full" asChild>
-                                <Link href={`/admin/conversations/${conversation.id}/resume-ai`} method="post">
-                                    Aktifkan AI Kembali
-                                </Link>
-                            </Button>
+                            {inHandoff && (
+                                <Button variant="outline" className="w-full" asChild>
+                                    <Link href={`/admin/conversations/${conversation.id}/resume-ai`} method="post">
+                                        Aktifkan AI Kembali
+                                    </Link>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ChatbotConfigController;
+use App\Http\Controllers\Admin\PersonaTemplateController;
 use App\Http\Controllers\Admin\ConversationController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KnowledgeController;
@@ -25,6 +26,9 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
     Route::get('/chatbot/{chatbot}/embed-code', [ChatbotConfigController::class, 'embedCode'])->name('chatbot.embed-code');
     Route::get('/chatbot/{chatbot}/persona', [ChatbotConfigController::class, 'persona'])->name('chatbot.persona');
     Route::put('/chatbot/{chatbot}/persona', [ChatbotConfigController::class, 'updatePersona'])->name('chatbot.persona.update');
+    Route::post('/chatbot/{chatbot}/persona/generate', [ChatbotConfigController::class, 'generatePersona'])->name('chatbot.persona.generate');
+    Route::post('/persona-templates', [PersonaTemplateController::class, 'store'])->name('persona-templates.store');
+    Route::delete('/persona-templates/{personaTemplate}', [PersonaTemplateController::class, 'destroy'])->name('persona-templates.destroy');
 
     Route::get('/knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
     Route::post('/knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');
@@ -40,6 +44,7 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
     Route::post('/conversations/{conversation}/image', [ConversationController::class, 'sendImage'])->name('conversations.image');
     Route::patch('/conversations/{conversation}/status', [ConversationController::class, 'updateStatus'])->name('conversations.status');
     Route::post('/conversations/{conversation}/assign', [ConversationController::class, 'assign'])->name('conversations.assign');
+    Route::post('/conversations/{conversation}/take-over', [ConversationController::class, 'takeOver'])->name('conversations.take-over');
     Route::post('/conversations/{conversation}/resume-ai', [ConversationController::class, 'resumeAI'])->name('conversations.resume-ai');
 
     Route::resource('users', UserController::class)->except(['show']);

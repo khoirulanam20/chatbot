@@ -62,12 +62,16 @@ class ConversationController extends Controller
     {
         $conversation->load(['contact', 'chatbot', 'assignedAgent', 'handoff.agent']);
         $messages = $conversation->messages()->orderBy('created_at')->get();
-        $agents   = \App\Models\User::where('tenant_id', $conversation->chatbot->tenant_id)
+        $agents   = User::where('tenant_id', $conversation->chatbot->tenant_id)
             ->whereIn('role', ['operator', 'admin'])
             ->get();
 
+        $idleExpiresAt = $this->agentSession->getIdleExpiresAt($conversation);
+
         return inertia('conversations/Show', [
-            'conversation' => $conversation,
+            'conversation' => array_merge($conversation->toArray(), [
+                'idle_expires_at' => $idleExpiresAt?->toISOString(),
+            ]),
             'messages' => $messages,
             'agents' => $agents,
         ]);
@@ -77,18 +81,25 @@ class ConversationController extends Controller
     {
         $request->validate(['message' => 'required|string|max:2000']);
 
+        $agent = Auth::user();
+        if (! $agent instanceof User || ! $this->agentSession->canAgentReply($conversation, $agent)) {
+            return back()->withErrors(['message' => 'Anda tidak dapat membalas percakapan ini.']);
+        }
+
+        if ($conversation->is_ai_active || $conversation->assigned_agent_id === null) {
+            $this->agentSession->takeOver($conversation, $agent);
+        }
+
         Message::create([
             'conversation_id' => $conversation->id,
             'role'            => 'agent',
             'content'         => $request->message,
         ]);
 
-        $agent = Auth::user();
-        $this->agentSession->startSession($conversation, $agent instanceof User ? $agent : null);
-
-        $conversation->update(['last_message_at' => now()]);
+        $this->agentSession->touchActivity($conversation);
 
         if ($conversation->channel === 'whatsapp') {
+            $conversation->loadMissing(['chatbot.waInstance', 'contact']);
             $waInstance = $conversation->chatbot->waInstance;
             if ($waInstance) {
                 app(WaOutboundService::class)->sendText(
@@ -136,8 +147,15 @@ class ConversationController extends Controller
         ]);
 
         $agent = Auth::user();
-        $this->agentSession->startSession($conversation, $agent instanceof User ? $agent : null);
-        $conversation->update(['last_message_at' => now()]);
+        if (! $agent instanceof User || ! $this->agentSession->canAgentReply($conversation, $agent)) {
+            return back()->withErrors(['image' => 'Anda tidak dapat membalas percakapan ini.']);
+        }
+
+        if ($conversation->is_ai_active || $conversation->assigned_agent_id === null) {
+            $this->agentSession->takeOver($conversation, $agent);
+        }
+
+        $this->agentSession->touchActivity($conversation);
 
         return back()->with('success', 'Gambar terkirim.');
     }
@@ -150,6 +168,34 @@ class ConversationController extends Controller
         return back()->with('success', 'Status percakapan diperbarui.');
     }
 
+    public function takeOver(Conversation $conversation)
+    {
+        $agent = Auth::user();
+        if (! $agent instanceof User || ! $agent->isOperator()) {
+            return back()->withErrors(['message' => 'Anda tidak memiliki akses untuk mengambil alih percakapan.']);
+        }
+
+        if (
+            $conversation->assigned_agent_id
+            && $conversation->assigned_agent_id !== $agent->id
+            && ! $agent->isAdmin()
+        ) {
+            return back()->withErrors(['message' => 'Percakapan sedang ditangani agen lain.']);
+        }
+
+        $this->agentSession->takeOver($conversation, $agent);
+
+        AgentHandoff::updateOrCreate(
+            ['conversation_id' => $conversation->id],
+            [
+                'agent_id' => $agent->id,
+                'reason'   => 'Manual takeover by admin',
+            ]
+        );
+
+        return back()->with('success', 'Percakapan berhasil diambil alih.');
+    }
+
     public function assign(Request $request, Conversation $conversation)
     {
         $request->validate(['agent_id' => 'nullable|exists:users,id']);
@@ -157,7 +203,7 @@ class ConversationController extends Controller
         $agent = $request->agent_id ? User::find($request->agent_id) : null;
 
         if ($agent) {
-            $this->agentSession->startSession($conversation, $agent);
+            $this->agentSession->takeOver($conversation, $agent);
         } else {
             $conversation->update(['assigned_agent_id' => null]);
         }

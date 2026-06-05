@@ -46,16 +46,21 @@ class ChatController extends Controller
         $conversation->load('chatbot');
 
         $result = $this->ragService->processMessage($conversation, $request->message);
+        $conversation->refresh();
 
         return response()->json([
             'session_id'      => $sessionId,
-            'message'         => $result['content'],
+            'message'         => $result['content'] ?? '',
+            'message_chunks'  => ! empty($result['silent']) ? [] : ($result['chunks'] ?? [$result['content']]),
+            'pacing_ms'       => $result['pacing_ms'] ?? 0,
             'sources'         => $result['sources'] ?? [],
             'message_id'      => $result['message_id'] ?? null,
             'user_message_id' => $result['user_message_id'] ?? null,
             'handoff'         => $result['handoff'] ?? false,
             'agent_session'   => $result['agent_session'] ?? false,
-            'agent_session_ends_at' => $conversation->agent_session_ends_at?->toISOString(),
+            'silent'          => $result['silent'] ?? false,
+            'idle_expires_at' => app(\App\Services\AgentSessionService::class)
+                ->getIdleExpiresAt($conversation)?->toISOString(),
         ]);
     }
 

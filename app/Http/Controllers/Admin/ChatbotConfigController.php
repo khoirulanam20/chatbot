@@ -5,13 +5,18 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BotEmbedConfig;
 use App\Models\Chatbot;
+use App\Models\PersonaTemplate;
 use App\Models\Tenant;
+use App\Services\PersonaGeneratorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class ChatbotConfigController extends Controller
 {
+    public function __construct(
+        private PersonaGeneratorService $personaGenerator
+    ) {}
     public function index()
     {
         $chatbots = Chatbot::with('embedConfig')->withCount('conversations')->paginate(10);
@@ -61,6 +66,9 @@ class ChatbotConfigController extends Controller
             'settings'  => [
                 'agent_session_minutes' => 30,
                 'agent_session_message' => \App\Services\AgentSessionService::DEFAULT_HOLD_MESSAGE,
+                'takeover_keywords' => [],
+                'takeover_idle_minutes' => 30,
+                'takeover_hold_message' => \App\Services\AgentSessionService::DEFAULT_TAKEOVER_HOLD_MESSAGE,
             ],
         ]);
 
@@ -94,18 +102,31 @@ class ChatbotConfigController extends Controller
             'avatar'                 => 'nullable|image|max:2048',
             'agent_session_minutes'  => 'nullable|integer|min:1|max:1440',
             'agent_session_message'  => 'nullable|string|max:500',
+            'takeover_keywords'      => 'nullable|string',
+            'takeover_idle_minutes'  => 'nullable|integer|min:1|max:1440',
+            'takeover_hold_message'  => 'nullable|string|max:500',
         ]);
+
+        $takeoverKeywords = $request->takeover_keywords
+            ? array_values(array_filter(array_map('trim', explode("\n", $request->takeover_keywords))))
+            : ($request->handoff_triggers
+                ? array_values(array_filter(array_map('trim', explode("\n", $request->handoff_triggers))))
+                : ($chatbot->settings['takeover_keywords'] ?? $chatbot->handoff_triggers ?? []));
 
         $data = $request->only(['name', 'model', 'temperature', 'max_context', 'language', 'fallback_message']);
         $data['settings'] = array_merge($chatbot->settings ?? [], [
             'agent_session_minutes' => (int) ($request->agent_session_minutes ?? 30),
             'agent_session_message' => $request->agent_session_message
                 ?: \App\Services\AgentSessionService::DEFAULT_HOLD_MESSAGE,
+            'takeover_keywords' => $takeoverKeywords,
+            'takeover_idle_minutes' => (int) ($request->takeover_idle_minutes
+                ?? $request->agent_session_minutes
+                ?? 30),
+            'takeover_hold_message' => $request->takeover_hold_message
+                ?: \App\Services\AgentSessionService::DEFAULT_TAKEOVER_HOLD_MESSAGE,
         ]);
         $data['is_active']        = $request->boolean('is_active');
-        $data['handoff_triggers'] = $request->handoff_triggers
-            ? array_map('trim', explode("\n", $request->handoff_triggers))
-            : [];
+        $data['handoff_triggers'] = $takeoverKeywords;
 
         if ($request->hasFile('avatar')) {
             if ($chatbot->avatar) {
@@ -154,15 +175,70 @@ class ChatbotConfigController extends Controller
             'instructions' => '',
             'restrictions' => '',
             'greeting_style' => '',
+            'humanize' => Chatbot::defaultHumanizeSettings(),
         ], $chatbot->getPersona());
+        $persona['humanize'] = array_merge(
+            Chatbot::defaultHumanizeSettings(),
+            is_array($persona['humanize'] ?? null) ? $persona['humanize'] : []
+        );
+
+        $user = Auth::user();
 
         return inertia('chatbot/Persona', [
-            'chatbot' => $chatbot->only(['id', 'name']),
+            'chatbot' => $chatbot->only(['id', 'name', 'tenant_id']),
             'persona' => $persona,
             'effective_system_prompt' => $chatbot->getEffectiveSystemPrompt(),
             'uses_legacy_prompt' => ! $chatbot->hasPersona() && filled($chatbot->system_prompt),
             'legacy_system_prompt' => $chatbot->system_prompt,
+            'custom_templates' => $this->mapCustomTemplates($chatbot->tenant_id, $user),
         ]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function mapCustomTemplates(?int $tenantId, $user): array
+    {
+        return PersonaTemplate::where('user_id', $user->id)
+            ->when($tenantId, fn ($q) => $q->where('tenant_id', $tenantId))
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (PersonaTemplate $template) => [
+                'id' => $template->id,
+                'name' => $template->name,
+                'description' => $template->description,
+                'role' => $template->role,
+                'tone' => $template->tone,
+                'instructions' => $template->instructions,
+                'restrictions' => $template->restrictions,
+                'greeting_style' => $template->greeting_style,
+                'can_delete' => true,
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function generatePersona(Request $request, Chatbot $chatbot)
+    {
+        $request->validate([
+            'description' => 'required|string|max:500',
+        ]);
+
+        try {
+            $persona = $this->personaGenerator->generate($chatbot, $request->description);
+
+            return response()->json([
+                'success' => true,
+                'persona' => $persona,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membuat persona: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function updatePersona(Request $request, Chatbot $chatbot)
@@ -173,7 +249,22 @@ class ChatbotConfigController extends Controller
             'instructions' => 'nullable|string|max:5000',
             'restrictions' => 'nullable|string|max:5000',
             'greeting_style' => 'nullable|string|max:500',
+            'humanize.enabled' => 'nullable|boolean',
+            'humanize.channels' => 'nullable|array',
+            'humanize.channels.*' => 'in:whatsapp,web',
+            'humanize.emoji_level' => 'nullable|in:none,minimal,medium,often',
+            'humanize.message_length' => 'nullable|in:short,medium,long',
+            'humanize.split_bubbles' => 'nullable|boolean',
+            'humanize.pacing_ms' => 'nullable|integer|min:500|max:3000',
+            'humanize.use_fillers' => 'nullable|boolean',
+            'humanize.avoid_markdown' => 'nullable|boolean',
         ]);
+
+        $channels = $request->input('humanize.channels', ['whatsapp', 'web']);
+        if (! is_array($channels)) {
+            $channels = ['whatsapp', 'web'];
+        }
+        $channels = array_values(array_filter($channels, fn ($c) => in_array($c, ['whatsapp', 'web'], true)));
 
         $settings = $chatbot->settings ?? [];
         $settings['persona'] = [
@@ -182,6 +273,16 @@ class ChatbotConfigController extends Controller
             'instructions' => $request->input('instructions', ''),
             'restrictions' => $request->input('restrictions', ''),
             'greeting_style' => $request->input('greeting_style', ''),
+            'humanize' => [
+                'enabled' => $request->boolean('humanize.enabled'),
+                'channels' => $channels ?: ['whatsapp', 'web'],
+                'emoji_level' => $request->input('humanize.emoji_level', 'minimal'),
+                'message_length' => $request->input('humanize.message_length', 'short'),
+                'split_bubbles' => $request->boolean('humanize.split_bubbles'),
+                'pacing_ms' => (int) $request->input('humanize.pacing_ms', 1200),
+                'use_fillers' => $request->boolean('humanize.use_fillers'),
+                'avoid_markdown' => $request->boolean('humanize.avoid_markdown'),
+            ],
         ];
         $chatbot->update(['settings' => $settings]);
         $chatbot->refresh();

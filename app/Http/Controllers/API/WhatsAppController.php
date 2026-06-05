@@ -7,6 +7,7 @@ use App\Jobs\ProcessWhatsAppMessageJob;
 use App\Models\WaInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -58,11 +59,21 @@ class WhatsAppController extends Controller
             return response()->json(['status' => 'no_instance']);
         }
 
+        $messageId = $data['id'] ?? $data['messageId'] ?? null;
+
+        if ($messageId) {
+            $doneKey = "wa_done:{$waInstance->id}:{$messageId}";
+            if (Cache::has($doneKey)) {
+                return response()->json(['status' => 'duplicate']);
+            }
+        }
+
         // Normalisasi payload untuk job
         $normalizedPayload = [
-            'from'    => $data['chatId'] ?? $from,
-            'message' => $message,
-            'name'    => $data['senderName'] ?? $from,
+            'from'       => $data['chatId'] ?? $from,
+            'message'    => $message,
+            'name'       => $data['senderName'] ?? $from,
+            'message_id' => $messageId,
         ];
 
         ProcessWhatsAppMessageJob::dispatch($normalizedPayload, $waInstance->id);
