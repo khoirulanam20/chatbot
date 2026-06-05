@@ -27,4 +27,18 @@ class AgentSessionServiceTest extends TestCase
 
         $this->assertSame(15, $service->getIdleMinutes($chatbot));
     }
+
+    public function test_is_ai_blocked_covers_orphan_and_handoff_states(): void
+    {
+        $service = new AgentSessionService();
+
+        $active = new Conversation(['is_ai_active' => true, 'status' => 'open']);
+        $this->assertFalse($service->isAiBlocked($active));
+
+        $orphan = new Conversation(['is_ai_active' => false, 'status' => 'open']);
+        $this->assertTrue($service->isAiBlocked($orphan));
+
+        $handoff = new Conversation(['is_ai_active' => false, 'status' => 'handoff']);
+        $this->assertTrue($service->isAiBlocked($handoff));
+    }
 }

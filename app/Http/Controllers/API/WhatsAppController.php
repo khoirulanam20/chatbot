@@ -35,7 +35,8 @@ class WhatsAppController extends Controller
         $from    = $data['senderPhone'] ?? $payload['from'] ?? '';
         $message = $data['content'] ?? $payload['message'] ?? '';
 
-        if (empty($from) || empty($message) || $data['type'] !== 'text') {
+        $messageType = $data['type'] ?? 'text';
+        if (empty($from) || empty($message) || ! in_array($messageType, ['text', 'chat'], true)) {
             return response()->json(['status' => 'skipped']);
         }
 

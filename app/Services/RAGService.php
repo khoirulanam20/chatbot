@@ -31,9 +31,9 @@ class RAGService
 
         $userMsg = $this->saveMessage($conversation, 'user', $userMessage);
 
-        $conversation->refresh();
+        $conversation = $this->agentSession->prepareForInbound($conversation);
 
-        if ($this->agentSession->isInHandoff($conversation) || ! $conversation->is_ai_active) {
+        if ($this->agentSession->isAiBlocked($conversation)) {
             return $this->respondDuringHandoff($conversation, $chatbot, $userMsg->id, $userMessage);
         }
 
@@ -244,8 +244,21 @@ class RAGService
         $messageLower = strtolower($message);
 
         foreach ($triggers as $trigger) {
-            $trigger = trim((string) $trigger);
-            if ($trigger !== '' && str_contains($messageLower, strtolower($trigger))) {
+            $trigger = trim(strtolower((string) $trigger));
+            if ($trigger === '') {
+                continue;
+            }
+
+            // Keyword pendek (<=3 char) harus match kata utuh agar tidak false-positive
+            if (mb_strlen($trigger) <= 3) {
+                $pattern = '/\b' . preg_quote($trigger, '/') . '\b/u';
+                if (preg_match($pattern, $messageLower)) {
+                    return true;
+                }
+                continue;
+            }
+
+            if (str_contains($messageLower, $trigger)) {
                 return true;
             }
         }

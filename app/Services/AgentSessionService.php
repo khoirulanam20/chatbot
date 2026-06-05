@@ -44,6 +44,28 @@ class AgentSessionService
         return ! $conversation->is_ai_active && $conversation->status === 'handoff';
     }
 
+    public function isAiBlocked(Conversation $conversation): bool
+    {
+        return ! $conversation->is_ai_active || $conversation->status === 'handoff';
+    }
+
+    /**
+     * Perbaiki state percakapan sebelum memproses pesan masuk (WA/web).
+     * Mengatasi data legacy: is_ai_active=false tapi status masih open.
+     */
+    public function prepareForInbound(Conversation $conversation): Conversation
+    {
+        $this->expireIfDue($conversation);
+        $conversation->refresh();
+
+        if (! $conversation->is_ai_active && $conversation->status !== 'handoff') {
+            $this->endSession($conversation, resumeAi: true);
+            $conversation->refresh();
+        }
+
+        return $conversation;
+    }
+
     public function isActive(Conversation $conversation): bool
     {
         if (! $this->isInHandoff($conversation)) {

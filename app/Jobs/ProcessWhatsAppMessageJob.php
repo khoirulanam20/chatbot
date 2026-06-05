@@ -94,7 +94,10 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
             ]);
         }
 
-        if ($agentSession->isInHandoff($conversation)) {
+        $conversation->loadMissing('chatbot');
+        $conversation = $agentSession->prepareForInbound($conversation);
+
+        if ($agentSession->isAiBlocked($conversation)) {
             Message::create([
                 'conversation_id' => $conversation->id,
                 'role'            => 'user',
@@ -118,6 +121,12 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
         $result = $rag->processMessage($conversation, $text);
 
         if (! empty($result['silent']) || ($result['content'] ?? '') === '') {
+            Log::info('WA reply skipped (handoff/silent)', [
+                'conversation_id' => $conversation->id,
+                'is_ai_active'    => $conversation->is_ai_active,
+                'status'          => $conversation->status,
+            ]);
+
             if ($messageId) {
                 Cache::put("wa_done:{$waInstance->id}:{$messageId}", true, now()->addDay());
             }
