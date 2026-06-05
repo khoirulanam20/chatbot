@@ -39,6 +39,22 @@ php artisan horizon
 
 Queue yang harus aktif: `default`, `documents`, `whatsapp`
 
+**Penting:** Jangan jalankan `php artisan queue:work` manual bersamaan dengan Horizon. Cukup Horizon (via Supervisor).
+
+Setelah setiap deploy, restart Horizon agar worker memuat kode terbaru:
+
+```bash
+php artisan horizon:terminate
+# Supervisor akan auto-restart Horizon
+```
+
+Diagnosis pipeline WhatsApp:
+
+```bash
+php artisan wa:diagnose
+php artisan wa:diagnose --reset-handoff   # reset percakapan WA stuck handoff/AI off
+```
+
 ### Scheduler (cron)
 
 ```cron
@@ -62,8 +78,33 @@ Setelah deploy, buka Persona tiap chatbot aktif dan sesuaikan pengaturan humanis
 
 ## Smoke test pasca-deploy
 
-1. Login admin → Persona chatbot → simpan humanisasi
-2. Widget chat → multi-bubble jika humanize ON + channel web
-3. WA masuk → multi-bubble jika humanize ON + channel whatsapp
-4. Webhook tanpa signature → 401 (jika secret diset)
-5. `php artisan conversations:expire-agent-sessions` → exit 0
+1. `php artisan horizon:terminate` lalu pastikan Horizon aktif kembali
+2. `php artisan wa:diagnose` → Redis OK, Horizon running, pending jobs 0 atau diproses
+3. Login admin → Persona chatbot → simpan humanisasi
+4. Widget chat → multi-bubble jika humanize ON + channel web
+5. WA masuk → typing (jika enabled) + balasan; pesan muncul di Admin → Percakapan
+6. Webhook tanpa signature → 401 (jika secret diset)
+7. `php artisan conversations:expire-agent-sessions` → exit 0
+
+### Troubleshooting WA tidak balas (embed jalan)
+
+Embed sinkron di HTTP; WA butuh webhook → queue `whatsapp` → Horizon → Chatery outbound.
+
+```bash
+# 1. Cek log setelah kirim pesan WA test
+tail -100 storage/logs/laravel.log | grep -E "WA webhook|WA job|WA outbound|WA reply skipped"
+
+# 2. Cek failed jobs
+php artisan queue:failed
+
+# 3. Reset handoff jika AI sengaja diam
+php artisan wa:diagnose --reset-handoff
+```
+
+| Log | Arti |
+|-----|------|
+| `WA webhook result status=queued` | Webhook OK, job masuk queue |
+| `WA webhook result status=no_instance` | `instance_id` WA tidak match `sessionId` Chatery |
+| `WA job handoff` / `WA reply skipped` | Percakapan di handoff — reset atau tunggu idle |
+| `WA outbound failed` | API key / sessionId / chatId Chatery bermasalah |
+| `WA job failed` | Lihat stack di `queue:failed` |

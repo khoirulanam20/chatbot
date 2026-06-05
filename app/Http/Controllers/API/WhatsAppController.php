@@ -16,20 +16,23 @@ class WhatsAppController extends Controller
     public function webhook(Request $request): JsonResponse
     {
         $payload = $request->all();
+        $event   = $payload['event'] ?? '';
+        $data    = $payload['data'] ?? [];
+        $sessionId = $payload['sessionId'] ?? null;
 
-        Log::debug('WA Webhook received', $payload);
+        Log::info('WA webhook received', [
+            'event'     => $event,
+            'sessionId' => $sessionId,
+            'fromMe'    => $data['fromMe'] ?? false,
+            'type'      => $data['type'] ?? null,
+        ]);
 
-        $event = $payload['event'] ?? '';
-        $data  = $payload['data'] ?? [];
-
-        // Hanya proses event pesan masuk, abaikan event lainnya
         if ($event !== 'message') {
-            return response()->json(['status' => 'ignored']);
+            return $this->webhookResponse('ignored', $sessionId);
         }
 
-        // Abaikan pesan yang dikirim oleh bot sendiri
         if (! empty($data['fromMe'])) {
-            return response()->json(['status' => 'ignored_self']);
+            return $this->webhookResponse('ignored_self', $sessionId);
         }
 
         $from    = $data['senderPhone'] ?? $payload['from'] ?? '';
@@ -37,16 +40,19 @@ class WhatsAppController extends Controller
 
         $messageType = $data['type'] ?? 'text';
         if (empty($from) || empty($message) || ! in_array($messageType, ['text', 'chat'], true)) {
-            return response()->json(['status' => 'skipped']);
+            return $this->webhookResponse('skipped', $sessionId, [
+                'from'        => $from,
+                'messageType' => $messageType,
+                'hasMessage'  => $message !== '',
+            ]);
         }
 
         $limiter = "wa_msg:{$from}";
         if (RateLimiter::tooManyAttempts($limiter, 10)) {
-            return response()->json(['status' => 'rate_limited']);
+            return $this->webhookResponse('rate_limited', $sessionId, ['from' => $from]);
         }
         RateLimiter::hit($limiter, 60);
 
-        $sessionId   = $payload['sessionId'] ?? null;
         $phoneNumber = $data['senderPhone'] ?? null;
 
         $waInstance = WaInstance::withoutGlobalScopes()
@@ -56,8 +62,10 @@ class WhatsAppController extends Controller
             ->first();
 
         if (! $waInstance) {
-            Log::warning('No WA instance found for webhook', ['sessionId' => $sessionId, 'phone' => $phoneNumber]);
-            return response()->json(['status' => 'no_instance']);
+            return $this->webhookResponse('no_instance', $sessionId, [
+                'phone' => $phoneNumber,
+                'from'  => $from,
+            ]);
         }
 
         $messageId = $data['id'] ?? $data['messageId'] ?? null;
@@ -65,11 +73,13 @@ class WhatsAppController extends Controller
         if ($messageId) {
             $doneKey = "wa_done:{$waInstance->id}:{$messageId}";
             if (Cache::has($doneKey)) {
-                return response()->json(['status' => 'duplicate']);
+                return $this->webhookResponse('duplicate', $sessionId, [
+                    'wa_instance_id' => $waInstance->id,
+                    'message_id'     => $messageId,
+                ]);
             }
         }
 
-        // Normalisasi payload untuk job
         $normalizedPayload = [
             'from'       => $data['chatId'] ?? $from,
             'message'    => $message,
@@ -79,6 +89,23 @@ class WhatsAppController extends Controller
 
         ProcessWhatsAppMessageJob::dispatch($normalizedPayload, $waInstance->id);
 
-        return response()->json(['status' => 'queued']);
+        return $this->webhookResponse('queued', $sessionId, [
+            'wa_instance_id' => $waInstance->id,
+            'from'           => $normalizedPayload['from'],
+            'message_id'     => $messageId,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function webhookResponse(string $status, ?string $sessionId, array $context = []): JsonResponse
+    {
+        Log::info('WA webhook result', array_merge([
+            'status'    => $status,
+            'sessionId' => $sessionId,
+        ], $context));
+
+        return response()->json(['status' => $status]);
     }
 }
