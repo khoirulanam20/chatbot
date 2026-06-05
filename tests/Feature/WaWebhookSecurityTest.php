@@ -7,6 +7,15 @@ use Tests\TestCase;
 
 class WaWebhookSecurityTest extends TestCase
 {
+    public function test_webhook_allowed_when_secret_empty(): void
+    {
+        config(['services.chatery.webhook_secret' => null]);
+
+        $response = $this->postJson('/api/webhook/whatsapp', ['event' => 'message']);
+
+        $response->assertStatus(200);
+    }
+
     public function test_webhook_rejects_missing_signature_when_secret_set(): void
     {
         config(['services.chatery.webhook_secret' => 'test-secret']);

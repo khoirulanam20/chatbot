@@ -66,8 +66,8 @@ class WaDiagnoseCommand extends Command
             ]
         );
 
-        if (app()->environment('production') && empty(config('services.chatery.webhook_secret'))) {
-            $this->error('CHATERY_WEBHOOK_SECRET kosong di production — webhook akan ditolak 503.');
+        if (empty(config('services.chatery.webhook_secret'))) {
+            $this->warn('  CHATERY_WEBHOOK_SECRET kosong — webhook diterima tanpa verifikasi signature (disarankan diisi).');
         }
 
         if (config('queue.default') !== 'redis') {

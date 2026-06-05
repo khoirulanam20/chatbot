@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class VerifyWaChaterySignature
@@ -12,10 +13,10 @@ class VerifyWaChaterySignature
     {
         $secret = config('services.chatery.webhook_secret');
 
+        // Secret kosong = skip verifikasi (kompatibel dengan setup lama / Chatery tanpa signature).
+        // Set CHATERY_WEBHOOK_SECRET untuk mengaktifkan verifikasi HMAC.
         if (empty($secret)) {
-            if (app()->environment('production')) {
-                return response()->json(['error' => 'Webhook not configured'], 503);
-            }
+            Log::warning('WA webhook: signature verification disabled (CHATERY_WEBHOOK_SECRET empty)');
 
             return $next($request);
         }
@@ -23,6 +24,8 @@ class VerifyWaChaterySignature
         $signature = $request->header('X-Chatery-Signature');
 
         if (! $signature) {
+            Log::warning('WA webhook rejected: missing X-Chatery-Signature header');
+
             return response()->json(['error' => 'Missing signature'], 401);
         }
 
@@ -30,6 +33,8 @@ class VerifyWaChaterySignature
         $expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
 
         if (! hash_equals($expected, $signature)) {
+            Log::warning('WA webhook rejected: invalid signature');
+
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
