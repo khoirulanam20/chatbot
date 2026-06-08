@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\WaInstance;
 use App\Services\AgentSessionService;
+use App\Services\ChatImageService;
 use App\Services\RAGService;
 use App\Services\TakeoverNotificationService;
 use App\Services\WaChateryService;
@@ -38,16 +39,21 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
         RAGService $rag,
         WaOutboundService $waOutbound,
         AgentSessionService $agentSession,
-        TakeoverNotificationService $takeoverNotifications
+        TakeoverNotificationService $takeoverNotifications,
+        ChatImageService $chatImageService,
+        WaChateryService $waChatery
     ): void {
         $from      = $this->payload['from'] ?? '';
         $text      = $this->payload['message'] ?? '';
         $messageId = $this->payload['message_id'] ?? null;
+        $type      = $this->payload['type'] ?? 'text';
+        $mediaUrl  = $this->payload['media_url'] ?? null;
 
         Log::info('WA job started', [
             'wa_instance_id' => $this->waInstanceId,
             'from'           => $from,
             'message_id'     => $messageId,
+            'type'           => $type,
         ]);
 
         $waInstance = WaInstance::find($this->waInstanceId);
@@ -59,8 +65,22 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
 
         $chatbot = $waInstance->chatbot;
 
-        if (empty($from) || empty($text)) {
-            Log::warning('WA job skipped: empty from or message', [
+        if (empty($from)) {
+            Log::warning('WA job skipped: empty from', [
+                'wa_instance_id' => $this->waInstanceId,
+            ]);
+            return;
+        }
+
+        if ($type === 'image') {
+            if (empty($mediaUrl)) {
+                Log::warning('WA job skipped: image without media_url', [
+                    'wa_instance_id' => $this->waInstanceId,
+                ]);
+                return;
+            }
+        } elseif (empty($text)) {
+            Log::warning('WA job skipped: empty message', [
                 'wa_instance_id' => $this->waInstanceId,
             ]);
             return;
@@ -133,10 +153,32 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
 
         $sessionId = $waInstance->instance_id ?: 'default';
         if ($waInstance->typing_enabled) {
-            app(WaChateryService::class)->sendTyping($waInstance->api_key, $from, $sessionId);
+            $waChatery->sendTyping($waInstance->api_key, $from, $sessionId);
         }
 
-        $result = $rag->processMessage($conversation, $text);
+        if ($type === 'image') {
+            try {
+                $stored = $chatImageService->storeFromUrl(
+                    $mediaUrl,
+                    $waInstance->tenant_id,
+                    $conversation->id,
+                    $waInstance->api_key
+                );
+            } catch (\Throwable $e) {
+                Log::error('WA image store failed', [
+                    'conversation_id' => $conversation->id,
+                    'error'           => $e->getMessage(),
+                ]);
+
+                throw new RuntimeException('WA image store failed: ' . $e->getMessage());
+            }
+
+            $caption = $text !== '' ? $text : '[Gambar]';
+            $result  = $rag->processImageMessage($conversation, $stored['url'], $caption);
+        } else {
+            $result = $rag->processMessage($conversation, $text);
+        }
+
         $conversation->refresh();
 
         if (! empty($result['silent']) || ($result['content'] ?? '') === '') {

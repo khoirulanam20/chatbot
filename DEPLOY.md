@@ -9,7 +9,8 @@ APP_URL=https://your-domain.com
 
 SUMOPOD_API_KEY=...
 CHATERY_BASE_URL=https://wa.firstudio.id/api
-CHATERY_WEBHOOK_SECRET=...   # wajib — webhook ditolak jika kosong di production
+CHATERY_WEBHOOK_SECRET=...   # opsional — jika diisi, webhook wajib header X-Chatery-Signature valid
+SUMOPOD_CHAT_MODEL=gpt-4o-mini   # model vision untuk teks & gambar
 
 QUEUE_CONNECTION=redis
 CACHE_STORE=redis
@@ -67,8 +68,18 @@ Command terjadwal: `conversations:expire-agent-sessions` (setiap menit)
 
 - `2026_06_01_000001` — agent session di conversations
 - `2026_06_01_142555` — notifications
+- `2026_06_01_150000` — chatbots.model nullable (model hanya dari Settings → AI)
 - `2026_06_02_000001` — typing_enabled di wa_instances
 - `2026_06_02_000002` — persona_templates
+
+## Vision (baca gambar)
+
+Agar chatbot bisa menganalisis gambar (widget web + WhatsApp):
+
+- Model di **Settings → AI** (superadmin global atau override tenant) harus mendukung vision, mis. `gpt-4o` atau `gpt-4o-mini` (typo `gpt-40-mini` otomatis dinormalisasi)
+- Admin → Edit Chatbot → centang **Izinkan upload gambar di widget**
+- `APP_URL` harus URL publik HTTPS yang benar (Sumopod/OpenAI fetch gambar dari `/storage/...`)
+- Pastikan `php artisan storage:link` sudah dijalankan
 
 ## Humanisasi persona
 
@@ -80,11 +91,31 @@ Setelah deploy, buka Persona tiap chatbot aktif dan sesuaikan pengaturan humanis
 
 1. `php artisan horizon:terminate` lalu pastikan Horizon aktif kembali
 2. `php artisan wa:diagnose` → Redis OK, Horizon running, pending jobs 0 atau diproses
-3. Login admin → Persona chatbot → simpan humanisasi
-4. Widget chat → multi-bubble jika humanize ON + channel web
-5. WA masuk → typing (jika enabled) + balasan; pesan muncul di Admin → Percakapan
-6. Webhook tanpa signature → 401 (jika secret diset)
-7. `php artisan conversations:expire-agent-sessions` → exit 0
+3. Login superadmin → **Settings → AI** → model chat tersimpan (mis. `gpt-4o-mini`) → cek `.env` ada `SUMOPOD_CHAT_MODEL=...`
+4. Login admin → Edit Chatbot → centang **Izinkan upload gambar di widget**
+5. Login admin → Persona chatbot → simpan humanisasi
+6. Widget chat → multi-bubble jika humanize ON + channel web
+7. Widget chat → upload gambar → AI membalas analisis (bukan hanya menampilkan file)
+8. WA masuk → typing (jika enabled) + balasan teks; pesan muncul di Admin → Percakapan
+9. WA kirim gambar → AI membalas analisis gambar
+10. Webhook tanpa signature → 401 (jika secret diset)
+11. `php artisan conversations:expire-agent-sessions` → exit 0
+
+### Checklist verifikasi production
+
+```bash
+# Migrasi terbaru sudah jalan
+php artisan migrate:status | grep 2026_06_01_150000
+
+# Model AI terkonfigurasi (tidak kosong)
+php artisan tinker --execute="echo config('services.sumopod.chat_model');"
+
+# Storage publik untuk gambar
+ls -la public/storage
+
+# APP_URL benar (HTTPS, domain production)
+php artisan tinker --execute="echo config('app.url');"
+```
 
 ### Troubleshooting WA tidak balas (embed jalan)
 

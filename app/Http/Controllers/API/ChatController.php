@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Chatbot;
 use App\Models\Contact;
 use App\Models\Conversation;
-use App\Models\Message;
 use App\Services\ChatImageService;
 use App\Services\RAGService;
 use Illuminate\Http\JsonResponse;
@@ -129,25 +128,29 @@ class ChatController extends Controller
 
         $caption = $request->caption ?: '[Gambar]';
 
-        $message = Message::create([
-            'conversation_id' => $conversation->id,
-            'role'            => 'user',
-            'content'         => $caption,
-            'metadata'        => [
+        $conversation->refresh();
+        $conversation->load('chatbot');
+
+        $result = $this->ragService->processImageMessage($conversation, $stored['url'], $caption);
+        $conversation->refresh();
+
+        return response()->json([
+            'session_id'      => $sessionId,
+            'message_id'      => $result['message_id'] ?? null,
+            'user_message_id' => $result['user_message_id'] ?? null,
+            'metadata'        => $result['metadata'] ?? [
                 'type' => 'image',
                 'url'  => $stored['url'],
                 'mime' => $stored['mime'],
                 'size' => $stored['size'],
             ],
-        ]);
-
-        $conversation->update(['last_message_at' => now()]);
-
-        return response()->json([
-            'session_id'  => $sessionId,
-            'message_id'  => $message->id,
-            'metadata'    => $message->metadata,
-            'content'     => $caption,
+            'content'         => $caption,
+            'message'         => $result['content'] ?? '',
+            'message_chunks'  => ! empty($result['silent']) ? [] : ($result['chunks'] ?? [$result['content'] ?? '']),
+            'pacing_ms'       => $result['pacing_ms'] ?? 0,
+            'handoff'         => $result['handoff'] ?? false,
+            'agent_session'   => $result['agent_session'] ?? false,
+            'silent'          => $result['silent'] ?? false,
         ]);
     }
 

@@ -21,11 +21,6 @@ export default function ChatbotIndex({ chatbots }: Props) {
             ),
         },
         {
-            key: 'model',
-            label: 'Model',
-            render: (row: Chatbot) => row.model ?? '-',
-        },
-        {
             key: 'status',
             label: 'Status',
             render: (row: Chatbot) => (

@@ -49,7 +49,6 @@ class DatabaseSeeder extends Seeder
             'tenant_id'       => $tenant->id,
             'name'            => 'Ava',
             'system_prompt'   => 'Kamu adalah asisten layanan pelanggan yang ramah dan membantu dari Demo Business. Jawab pertanyaan berdasarkan knowledge base yang tersedia. Jika tidak menemukan jawaban, arahkan user ke agen manusia.',
-            'model'           => 'gpt-4o',
             'temperature'     => 0.7,
             'max_context'     => 10,
             'language'        => 'id',

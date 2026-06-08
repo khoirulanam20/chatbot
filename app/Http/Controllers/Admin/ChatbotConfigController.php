@@ -35,7 +35,6 @@ class ChatbotConfigController extends Controller
             'tenant_id'       => 'required|exists:tenants,id',
             'name'            => 'required|string|max:100',
             'system_prompt'   => 'nullable|string',
-            'model'           => 'required|string',
             'temperature'     => 'required|numeric|min:0|max:1',
             'max_context'     => 'required|integer|min:1|max:50',
             'language'        => 'required|string|max:10',
@@ -53,7 +52,6 @@ class ChatbotConfigController extends Controller
             'tenant_id'        => $request->tenant_id,
             'name'             => $request->name,
             'system_prompt'    => $request->system_prompt,
-            'model'            => $request->model,
             'temperature'      => $request->temperature,
             'max_context'      => $request->max_context,
             'language'         => $request->language,
@@ -93,7 +91,6 @@ class ChatbotConfigController extends Controller
     {
         $request->validate([
             'name'             => 'required|string|max:100',
-            'model'            => 'required|string',
             'temperature'      => 'required|numeric|min:0|max:1',
             'max_context'      => 'required|integer|min:1|max:50',
             'language'         => 'required|string|max:10',
@@ -113,7 +110,7 @@ class ChatbotConfigController extends Controller
                 ? array_values(array_filter(array_map('trim', explode("\n", $request->handoff_triggers))))
                 : ($chatbot->settings['takeover_keywords'] ?? $chatbot->handoff_triggers ?? []));
 
-        $data = $request->only(['name', 'model', 'temperature', 'max_context', 'language', 'fallback_message']);
+        $data = $request->only(['name', 'temperature', 'max_context', 'language', 'fallback_message']);
         $data['settings'] = array_merge($chatbot->settings ?? [], [
             'agent_session_minutes' => (int) ($request->agent_session_minutes ?? 30),
             'agent_session_message' => $request->agent_session_message

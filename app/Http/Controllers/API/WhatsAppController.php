@@ -39,11 +39,26 @@ class WhatsAppController extends Controller
         $message = $data['content'] ?? $payload['message'] ?? '';
 
         $messageType = $data['type'] ?? 'text';
-        if (empty($from) || empty($message) || ! in_array($messageType, ['text', 'chat'], true)) {
+        $isImage     = in_array($messageType, ['image', 'imageMessage'], true);
+        $isText      = in_array($messageType, ['text', 'chat'], true);
+
+        if (empty($from) || (! $isText && ! $isImage)) {
             return $this->webhookResponse('skipped', $sessionId, [
                 'from'        => $from,
                 'messageType' => $messageType,
                 'hasMessage'  => $message !== '',
+            ]);
+        }
+
+        if ($isImage && empty($message)) {
+            $message = $data['caption'] ?? '[Gambar]';
+        }
+
+        if ($isText && empty($message)) {
+            return $this->webhookResponse('skipped', $sessionId, [
+                'from'        => $from,
+                'messageType' => $messageType,
+                'hasMessage'  => false,
             ]);
         }
 
@@ -85,6 +100,10 @@ class WhatsAppController extends Controller
             'message'    => $message,
             'name'       => $data['senderName'] ?? $from,
             'message_id' => $messageId,
+            'type'       => $isImage ? 'image' : 'text',
+            'media_url'  => $isImage
+                ? ($data['mediaUrl'] ?? $data['url'] ?? $data['media'] ?? $data['content'] ?? null)
+                : null,
         ];
 
         ProcessWhatsAppMessageJob::dispatch($normalizedPayload, $waInstance->id);

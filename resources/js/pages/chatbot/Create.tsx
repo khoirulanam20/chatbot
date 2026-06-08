@@ -17,7 +17,6 @@ export default function ChatbotCreate({ tenants }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         tenant_id: isSuperAdmin ? String(tenants[0]?.id ?? '') : String(auth.user?.tenant_id ?? ''),
         name: '',
-        model: 'gpt-4o',
         temperature: '0.7',
         max_context: '10',
         language: 'id',
@@ -78,15 +77,6 @@ export default function ChatbotCreate({ tenants }: Props) {
                                     accept="image/*"
                                     className="mt-1"
                                     onChange={(e) => setData('avatar', e.target.files?.[0] ?? null)}
-                                />
-                            </div>
-                            <div>
-                                <Label>Model AI *</Label>
-                                <Input
-                                    value={data.model}
-                                    onChange={(e) => setData('model', e.target.value)}
-                                    className="mt-1"
-                                    required
                                 />
                             </div>
                             <div>

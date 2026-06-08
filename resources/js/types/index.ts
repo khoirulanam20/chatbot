@@ -23,6 +23,7 @@ export interface AppNotification {
 }
 
 export interface PageProps {
+    csrf_token?: string;
     auth: { user: AuthUser | null };
     flash: { success?: string; error?: string };
     notifications?: {

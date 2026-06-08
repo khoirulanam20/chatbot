@@ -64,5 +64,5 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('/settings/global', [SettingsController::class, 'updateGlobal'])->name('settings.update-global')->middleware('super_admin');
-    Route::get('/settings/test-ai', [SettingsController::class, 'testAI'])->name('settings.test-ai');
+    Route::post('/settings/test-ai', [SettingsController::class, 'testAI'])->name('settings.test-ai');
 });

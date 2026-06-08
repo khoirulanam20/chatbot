@@ -45,7 +45,6 @@ export default function ChatbotEdit({ chatbot }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         _method: 'put',
         name: chatbot.name ?? '',
-        model: chatbot.model ?? 'gpt-4o',
         temperature: String(chatbot.temperature ?? 0.7),
         max_context: String(chatbot.max_context ?? 10),
         language: chatbot.language ?? 'id',
@@ -98,10 +97,6 @@ export default function ChatbotEdit({ chatbot }: Props) {
                                     <img src={`/storage/${chatbot.avatar}`} alt="" className="mb-2 h-12 w-12 rounded-lg object-cover" />
                                 )}
                                 <Input type="file" accept="image/*" className="mt-1" onChange={(e) => setData('avatar', e.target.files?.[0] ?? null)} />
-                            </div>
-                            <div>
-                                <Label>Model AI *</Label>
-                                <Input value={data.model} onChange={(e) => setData('model', e.target.value)} className="mt-1" required />
                             </div>
                             <div>
                                 <Label>Bahasa</Label>

@@ -1,10 +1,11 @@
 import { FormEventHandler, useState } from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Tenant } from '@/types';
+import { getCsrfToken } from '@/lib/csrf';
+import type { PageProps, Tenant } from '@/types';
 
 interface Props {
     global: Record<string, string>;
@@ -21,6 +22,7 @@ export default function SettingsIndex({
     tenants,
     isSuperAdmin,
 }: Props) {
+    const { props: pageProps } = usePage<PageProps>();
     const [testResult, setTestResult] = useState<string | null>(null);
 
     const tenantForm = useForm({
@@ -51,15 +53,42 @@ export default function SettingsIndex({
 
     const testAI = async () => {
         setTestResult('Memeriksa...');
+        const csrfToken = getCsrfToken(pageProps.csrf_token);
+        if (!csrfToken) {
+            setTestResult('CSRF token tidak tersedia. Muat ulang halaman lalu coba lagi.');
+            return;
+        }
         try {
-            const params = new URLSearchParams();
-            if (tenant?.id) params.set('tenant_id', String(tenant.id));
-            const res = await fetch(`/admin/settings/test-ai?${params}`, {
-                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            const res = await fetch('/admin/settings/test-ai', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-XSRF-TOKEN': csrfToken,
+                },
                 credentials: 'same-origin',
+                body: JSON.stringify({
+                    _token: csrfToken,
+                    tenant_id: tenant?.id ?? undefined,
+                    ai_api_key: tenantForm.data.ai_api_key || undefined,
+                    ai_base_url: tenantForm.data.ai_base_url || undefined,
+                    ai_embed_model: tenantForm.data.ai_embed_model || undefined,
+                    ai_chat_model: tenantForm.data.ai_chat_model || undefined,
+                }),
             });
+            if (res.status === 419) {
+                setTestResult('Sesi kedaluwarsa. Muat ulang halaman lalu coba lagi.');
+                return;
+            }
             const data = await res.json();
-            setTestResult(data.message ?? (data.success ? 'Berhasil' : 'Gagal'));
+            let message = data.message ?? (data.success ? 'Berhasil' : 'Gagal');
+            if (data.config) {
+                const suffix = ` [base: ${data.config.base_url}, chat: ${data.config.chat_model}, embed: ${data.config.embed_model}]`;
+                message += suffix;
+            }
+            setTestResult(message);
         } catch {
             setTestResult('Gagal menghubungi server');
         }
@@ -109,7 +138,7 @@ export default function SettingsIndex({
                     <div className="grid gap-4 md:grid-cols-2">
                         <div>
                             <Label>Model Embedding</Label>
-                            <Input value={tenantForm.data.ai_embed_model} onChange={(e) => tenantForm.setData('ai_embed_model', e.target.value)} className="mt-1 font-mono" />
+                            <Input value={tenantForm.data.ai_embed_model} onChange={(e) => tenantForm.setData('ai_embed_model', e.target.value)} className="mt-1 font-mono" placeholder={global.ai_embed_model || 'text-embedding-3-small'} />
                         </div>
                         <div>
                             <Label>Model Chat</Label>
@@ -120,6 +149,7 @@ export default function SettingsIndex({
                         <Button type="submit" disabled={tenantForm.processing}>Simpan Pengaturan Tenant</Button>
                         <Button type="button" variant="outline" onClick={testAI}>Test Koneksi AI</Button>
                     </div>
+                    <p className="text-xs text-muted">Test memakai nilai di form ini (belum perlu disimpan).</p>
                     {testResult && <p className="text-sm text-muted">{testResult}</p>}
                 </form>
 

@@ -18,6 +18,135 @@ class RAGService
         private TakeoverNotificationService $takeoverNotifications
     ) {}
 
+    public function processImageMessage(
+        Conversation $conversation,
+        string $imageUrl,
+        ?string $caption = null
+    ): array {
+        $chatbot = $conversation->chatbot;
+        $channel = $conversation->channel ?? 'web';
+        $caption = trim((string) $caption) ?: '[Gambar]';
+
+        $sumopod = $this->sumopod->withTenantSettings(
+            $chatbot->tenant?->getAiConfig() ?? []
+        );
+
+        $metadata = [
+            'type' => 'image',
+            'url'  => $imageUrl,
+        ];
+
+        $userMsg = $this->saveMessage($conversation, 'user', $caption, metadata: $metadata);
+
+        $conversation = $this->agentSession->prepareForInbound($conversation);
+
+        if ($this->agentSession->isAiBlocked($conversation)) {
+            return $this->respondDuringHandoff($conversation, $chatbot, $userMsg->id, $caption);
+        }
+
+        if (! $chatbot->is_active) {
+            $reply = $chatbot->getFallbackMessage();
+            $this->saveMessage($conversation, 'assistant', $reply);
+
+            return $this->wrapResponse($reply, $chatbot, $channel, [
+                'sources'         => [],
+                'user_message_id' => $userMsg->id,
+            ]);
+        }
+
+        try {
+            $model = $sumopod->resolveModel($chatbot);
+        } catch (\RuntimeException $e) {
+            $reply = $e->getMessage();
+            $this->saveMessage($conversation, 'assistant', $reply);
+
+            return $this->wrapResponse($reply, $chatbot, $channel, [
+                'sources'         => [],
+                'user_message_id' => $userMsg->id,
+            ]);
+        }
+
+        if (! VisionMessageFormatter::supportsVision($model)) {
+            $reply = 'Maaf, model AI di Settings belum mendukung analisis gambar. Ubah ke model vision di Settings → AI.';
+            $this->saveMessage($conversation, 'assistant', $reply);
+
+            return $this->wrapResponse($reply, $chatbot, $channel, [
+                'sources'         => [],
+                'user_message_id' => $userMsg->id,
+            ]);
+        }
+
+        if ($caption !== '[Gambar]' && $this->containsHandoffTrigger($chatbot, $caption)) {
+            $result = $this->triggerHandoff($conversation, $chatbot, $caption);
+            $result['user_message_id'] = $userMsg->id;
+
+            return $result;
+        }
+
+        try {
+            $chunks  = [];
+            $context = '';
+
+            if ($caption !== '[Gambar]') {
+                $queryEmbedding = $sumopod->embed($caption);
+                $chunks         = $this->semanticSearch($chatbot, $queryEmbedding);
+                $context        = $this->buildContext($chunks);
+            }
+
+            $history  = $this->getConversationHistory($conversation, $chatbot->max_context, excludeId: $userMsg->id);
+            $messages = $this->buildVisionMessages($chatbot, $history, $context, $imageUrl, $caption, $channel);
+            $humanizeActive = $chatbot->isHumanizeEnabledFor($channel);
+
+            $temperature = $humanizeActive
+                ? min(0.9, ($chatbot->temperature ?? 0.7) + 0.1)
+                : ($chatbot->temperature ?? 0.7);
+
+            $result = $sumopod->chatOnce($messages, $chatbot, overrideModel: $model, temperature: $temperature);
+
+            $processed = $this->humanizedResponse->process(
+                $result['content'],
+                $chatbot->getHumanizeSettings(),
+                $humanizeActive
+            );
+
+            $sources = array_map(fn ($c) => [
+                'document_name' => $c->document->name ?? '',
+                'chunk_index'   => $c->chunk_index,
+            ], $chunks);
+
+            $message = $this->saveMessage(
+                $conversation,
+                'assistant',
+                $processed['content'],
+                $result['tokens'],
+                $sources
+            );
+
+            $conversation->update(['last_message_at' => now()]);
+
+            return $this->wrapResponse($processed['content'], $chatbot, $channel, [
+                'chunks'          => $processed['chunks'],
+                'sources'         => $sources,
+                'message_id'      => $message->id,
+                'user_message_id' => $userMsg->id,
+                'metadata'        => $metadata,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('RAG vision pipeline error', [
+                'conversation_id' => $conversation->id,
+                'error'           => $e->getMessage(),
+            ]);
+
+            $fallback = $chatbot->getFallbackMessage();
+            $this->saveMessage($conversation, 'assistant', $fallback);
+
+            return $this->wrapResponse($fallback, $chatbot, $channel, [
+                'sources'         => [],
+                'user_message_id' => $userMsg->id,
+            ]);
+        }
+    }
+
     public function processMessage(
         Conversation $conversation,
         string $userMessage
@@ -219,7 +348,7 @@ class RAGService
 
         foreach ($history as $msg) {
             if (in_array($msg->role, ['user', 'assistant'])) {
-                $messages[] = ['role' => $msg->role, 'content' => $msg->content];
+                $messages[] = VisionMessageFormatter::formatMessage($msg);
             }
         }
 
@@ -228,14 +357,56 @@ class RAGService
         return $messages;
     }
 
-    private function getConversationHistory(Conversation $conversation, int $limit): \Illuminate\Database\Eloquent\Collection
-    {
-        return $conversation->messages()
+    private function buildVisionMessages(
+        Chatbot $chatbot,
+        \Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection|array $history,
+        string $context,
+        string $imageUrl,
+        string $caption,
+        string $channel = 'web'
+    ): array {
+        $systemPrompt = $chatbot->getEffectiveSystemPrompt();
+
+        if (! empty($context)) {
+            $systemPrompt .= "\n\n" . $context;
+        }
+
+        $humanizeBlock = $chatbot->composeHumanizeBlock($channel);
+        if ($humanizeBlock !== '') {
+            $systemPrompt .= "\n\n" . $humanizeBlock;
+        }
+
+        $systemPrompt .= "\n\nKamu dapat melihat dan menganalisis gambar yang dikirim user.";
+        $systemPrompt .= "\n\nJika tidak ada informasi yang relevan, katakan dengan jujur bahwa kamu tidak tahu.";
+
+        $messages = [['role' => 'system', 'content' => $systemPrompt]];
+
+        foreach ($history as $msg) {
+            if (in_array($msg->role, ['user', 'assistant'])) {
+                $messages[] = VisionMessageFormatter::formatMessage($msg);
+            }
+        }
+
+        $messages[] = VisionMessageFormatter::formatImageUserMessage($imageUrl, $caption);
+
+        return $messages;
+    }
+
+    private function getConversationHistory(
+        Conversation $conversation,
+        int $limit,
+        ?int $excludeId = null
+    ): \Illuminate\Database\Eloquent\Collection {
+        $query = $conversation->messages()
             ->whereIn('role', ['user', 'assistant'])
             ->latest()
-            ->limit($limit * 2)
-            ->get()
-            ->reverse();
+            ->limit($limit * 2);
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return $query->get()->reverse();
     }
 
     private function containsHandoffTrigger(Chatbot $chatbot, string $message): bool
@@ -314,7 +485,8 @@ class RAGService
         string $role,
         string $content,
         ?int $tokens = null,
-        array $sources = []
+        array $sources = [],
+        ?array $metadata = null
     ): Message {
         return Message::create([
             'conversation_id' => $conversation->id,
@@ -322,6 +494,7 @@ class RAGService
             'content'         => $content,
             'tokens'          => $tokens,
             'sources'         => $sources ?: null,
+            'metadata'        => $metadata,
         ]);
     }
 }

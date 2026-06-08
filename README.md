@@ -172,13 +172,15 @@ Tambahkan ke website manapun:
 
 ## Pengaturan AI
 
-Masuk ke **Admin → Pengaturan AI** untuk mengkonfigurasi:
+Masuk ke **Admin → Pengaturan AI** (superadmin) untuk mengkonfigurasi:
 - Sumopod API Key
 - Base URL
 - Model embedding
-- Model chat
+- Model chat (dipakai semua chatbot — teks & gambar)
 
-Setiap chatbot dapat override model chat di halaman edit chatbot.
+Superadmin mengatur default global (`SUMOPOD_CHAT_MODEL` di `.env`). Admin tenant bisa override per tenant lewat field yang sama di halaman Settings (jika diisi).
+
+Untuk analisis gambar, pilih model vision (mis. `gpt-4o-mini`) di Settings → AI, lalu centang **Izinkan upload gambar** di Edit Chatbot.
 
 ## Deploy Production
 

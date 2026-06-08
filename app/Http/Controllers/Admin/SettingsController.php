@@ -78,6 +78,10 @@ class SettingsController extends Controller
             'sumopod_chat_model'  => 'required|string|max:100',
         ]);
 
+        if ($embedError = SumopodService::validateEmbedModelName($request->sumopod_embed_model)) {
+            return back()->withErrors(['sumopod_embed_model' => $embedError]);
+        }
+
         $updates = [
             'SUMOPOD_BASE_URL'    => $request->sumopod_base_url,
             'SUMOPOD_EMBED_MODEL' => $request->sumopod_embed_model,
@@ -176,28 +180,28 @@ class SettingsController extends Controller
 
     public function testAI(Request $request)
     {
-        try {
-            $user   = Auth::user();
-            $tenant = $user->isSuperAdmin() && $request->filled('tenant_id')
-                ? Tenant::find($request->tenant_id)
-                : $user->tenant;
+        $request->validate([
+            'tenant_id'      => 'nullable|integer|exists:tenants,id',
+            'ai_api_key'     => 'nullable|string',
+            'ai_base_url'    => 'nullable|url',
+            'ai_embed_model' => 'nullable|string|max:100',
+            'ai_chat_model'  => 'nullable|string|max:100',
+        ]);
 
-            $service = app(SumopodService::class)
-                ->withTenantSettings($tenant?->getAiConfig() ?? []);
+        $user   = Auth::user();
+        $tenant = $user->isSuperAdmin() && $request->filled('tenant_id')
+            ? Tenant::find($request->tenant_id)
+            : $user->tenant;
 
-            $ok = $service->testConnection();
+        $formOverrides = array_filter(
+            $request->only(['ai_api_key', 'ai_base_url', 'ai_embed_model', 'ai_chat_model']),
+            fn ($value) => $value !== null && $value !== ''
+        );
 
-            return response()->json([
-                'success' => $ok,
-                'message' => $ok ? 'Koneksi AI berhasil!' : 'Koneksi AI gagal.',
-                'config'  => [
-                    'base_url'    => $service->getConfig()['base_url'],
-                    'chat_model'  => $service->getConfig()['chat_model'],
-                    'embed_model' => $service->getConfig()['embed_model'],
-                ],
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()]);
-        }
+        $mergedSettings = array_merge($tenant?->getAiConfig() ?? [], $formOverrides);
+
+        $service = app(SumopodService::class)->withTenantSettings($mergedSettings);
+
+        return response()->json($service->testConnection());
     }
 }

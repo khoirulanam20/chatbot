@@ -430,16 +430,27 @@
           sessionId = data.session_id;
           sessionStorage.setItem('cb_session_' + BOT_ID, sessionId);
         }
-        if (data.message_id) {
+        if (data.user_message_id) {
           var tempEl = document.querySelector('[data-temp-id="' + tempId + '"]');
           if (tempEl) {
-            tempEl.setAttribute('data-msg-id', data.message_id);
+            tempEl.setAttribute('data-msg-id', data.user_message_id);
             if (data.metadata && data.metadata.url) {
               var img = tempEl.querySelector('img');
               if (img) img.src = data.metadata.url.startsWith('http') ? data.metadata.url : BASE_URL + data.metadata.url;
             }
           }
-          lastMessageId = data.message_id;
+        }
+        if (data.message_id) lastMessageId = data.message_id;
+        if (!data.silent && data.message) {
+          var chunks = data.message_chunks;
+          if (chunks && chunks.length > 1 && data.pacing_ms > 0) {
+            appendChunksAnimated(chunks, data.message_id, data.pacing_ms);
+          } else {
+            appendMessage('assistant', data.message, data.message_id);
+          }
+        }
+        if (data.handoff || data.agent_session) {
+          setAgentSessionStatus(true);
         }
       })
       .catch(function () {

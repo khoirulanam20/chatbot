@@ -207,6 +207,33 @@ class WaChateryService
         return $phone . '@s.whatsapp.net';
     }
 
+    /**
+     * Unduh media dari Chatery (gambar WA).
+     */
+    public function downloadMedia(string $apiKey, string $mediaUrl): ?string
+    {
+        try {
+            $response = Http::withHeaders(['X-Api-Key' => $apiKey])
+                ->timeout(30)
+                ->get($mediaUrl);
+
+            if ($response->failed()) {
+                Log::error('WA Chatery media download failed', [
+                    'url'    => $mediaUrl,
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return $response->body();
+        } catch (\Exception $e) {
+            Log::error('WA Chatery media download exception', ['message' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
     private function normalizePhone(string $phone): string
     {
         $phone = preg_replace('/[^0-9]/', '', $phone);
