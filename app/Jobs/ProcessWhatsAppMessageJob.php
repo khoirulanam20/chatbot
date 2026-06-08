@@ -10,6 +10,7 @@ use App\Services\ChatImageService;
 use App\Services\RAGService;
 use App\Services\TakeoverNotificationService;
 use App\Services\WaChateryService;
+use App\Support\DebugWaTrace;
 use App\Services\WaConversationResolver;
 use App\Services\WaOutboundService;
 use Illuminate\Bus\Queueable;
@@ -65,10 +66,26 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             'type'           => $type,
         ]);
 
+        // #region agent log
+        DebugWaTrace::log('H4', 'ProcessWhatsAppMessageJob.php:handle', 'job_handle_started', [
+            'wa_instance_id' => $this->waInstanceId,
+            'message_id'     => $messageId,
+            'queue'          => $this->queue ?? 'default',
+        ]);
+        // #endregion
+
         $waInstance = WaInstance::withoutGlobalScopes()->find($this->waInstanceId);
 
         if (! $waInstance || ! $waInstance->chatbot) {
             Log::warning('WA instance not found', ['id' => $this->waInstanceId]);
+
+            // #region agent log
+            DebugWaTrace::log('H3', 'ProcessWhatsAppMessageJob.php:handle', 'job_abort_no_instance', [
+                'wa_instance_id' => $this->waInstanceId,
+                'found'          => (bool) $waInstance,
+            ]);
+            // #endregion
+
             return;
         }
 
@@ -120,6 +137,13 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
         $conversation = $agentSession->prepareForInbound($conversation);
 
         if ($agentSession->isAiBlocked($conversation)) {
+            // #region agent log
+            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_handoff_blocked', [
+                'conversation_id' => $conversation->id,
+                'status'          => $conversation->status,
+            ]);
+            // #endregion
+
             Message::create([
                 'conversation_id' => $conversation->id,
                 'role'            => 'user',
@@ -204,8 +228,21 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
                 'from'            => $from,
             ]);
 
+            // #region agent log
+            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_outbound_failed', [
+                'conversation_id' => $conversation->id,
+            ]);
+            // #endregion
+
             throw new RuntimeException('WA outbound send failed');
         }
+
+        // #region agent log
+        DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_completed_ok', [
+            'conversation_id' => $conversation->id,
+            'message_id'      => $messageId,
+        ]);
+        // #endregion
 
         Log::info('WA job completed', [
             'conversation_id' => $conversation->id,

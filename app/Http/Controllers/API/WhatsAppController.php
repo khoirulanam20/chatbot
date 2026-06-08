@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessWhatsAppAgentReplyJob;
 use App\Jobs\ProcessWhatsAppMessageJob;
 use App\Models\WaInstance;
+use App\Support\DebugWaTrace;
 use App\Services\WaChateryService;
 use App\Services\WaOutboundService;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,17 @@ class WhatsAppController extends Controller
             'fromMe'    => $data['fromMe'] ?? false,
             'type'      => $data['type'] ?? null,
         ]);
+
+        // #region agent log
+        DebugWaTrace::log('H2', 'WhatsAppController.php:webhook', 'webhook_controller_reached', [
+            'event'      => $event,
+            'sessionId'  => $sessionId,
+            'fromMe'     => $data['fromMe'] ?? null,
+            'type'       => $data['type'] ?? null,
+            'has_chatId' => ! empty($data['chatId']),
+            'has_phone'  => ! empty($data['senderPhone']),
+        ]);
+        // #endregion
 
         if ($event !== 'message') {
             return $this->webhookResponse('ignored', $sessionId);
@@ -113,6 +125,14 @@ class WhatsAppController extends Controller
         ];
 
         ProcessWhatsAppMessageJob::dispatch($normalizedPayload, $waInstance->id);
+
+        // #region agent log
+        DebugWaTrace::log('H3', 'WhatsAppController.php:webhook', 'job_dispatched', [
+            'wa_instance_id' => $waInstance->id,
+            'message_id'     => $messageId,
+            'queue'          => 'whatsapp',
+        ]);
+        // #endregion
 
         return $this->webhookResponse('queued', $sessionId, [
             'wa_instance_id' => $waInstance->id,
@@ -243,6 +263,13 @@ class WhatsAppController extends Controller
             'status'    => $status,
             'sessionId' => $sessionId,
         ], $context));
+
+        // #region agent log
+        DebugWaTrace::log('H3', 'WhatsAppController.php:webhookResponse', 'webhook_result', array_merge([
+            'status'    => $status,
+            'sessionId' => $sessionId,
+        ], $context));
+        // #endregion
 
         return response()->json(['status' => $status]);
     }
