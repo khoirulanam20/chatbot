@@ -53,7 +53,7 @@ class ProcessWhatsAppAgentReplyJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        $waInstance = WaInstance::find($this->waInstanceId);
+        $waInstance = WaInstance::withoutGlobalScopes()->find($this->waInstanceId);
 
         if (! $waInstance || ! $waInstance->chatbot) {
             Log::warning('WA agent reply job: instance not found', ['id' => $this->waInstanceId]);

@@ -21,6 +21,8 @@ class WaOutboundService
             ? max(500, min(10000, (int) ($waInstance->typing_duration_ms ?? 2000)))
             : null;
 
+        $this->rememberOutbound($waInstance->id, $to, $message);
+
         $result = $this->chatery->sendMessage(
             $waInstance->api_key,
             $to,
@@ -29,8 +31,8 @@ class WaOutboundService
             $typingTime
         );
 
-        if ($result['success']) {
-            $this->rememberOutbound($waInstance->id, $to, $message, $result['message_id']);
+        if ($result['success'] && $result['message_id']) {
+            $this->rememberOutboundMessageId($waInstance->id, $result['message_id']);
         }
 
         if ($waInstance->typing_enabled) {
@@ -71,6 +73,8 @@ class WaOutboundService
                 $typingTime = max(500, min(4000, mb_strlen($chunk) * 40));
             }
 
+            $this->rememberOutbound($waInstance->id, $to, $chunk);
+
             $result = $this->chatery->sendMessage(
                 $waInstance->api_key,
                 $to,
@@ -80,7 +84,9 @@ class WaOutboundService
             );
 
             if ($result['success']) {
-                $this->rememberOutbound($waInstance->id, $to, $chunk, $result['message_id']);
+                if ($result['message_id']) {
+                    $this->rememberOutboundMessageId($waInstance->id, $result['message_id']);
+                }
             } else {
                 $allSent = false;
             }
@@ -112,23 +118,24 @@ class WaOutboundService
         return Cache::has(self::outboundHashKey($waInstanceId, $normalizedChat, $content));
     }
 
-    private function rememberOutbound(
-        int $waInstanceId,
-        string $to,
-        string $content,
-        ?string $messageId
-    ): void {
+    private function rememberOutbound(int $waInstanceId, string $to, string $content): void
+    {
         $ttl = now()->addMinutes(self::OUTBOUND_CACHE_MINUTES);
         $normalizedChat = WaChateryService::normalizePhone($to);
-
-        if ($messageId) {
-            Cache::put(self::outboundIdKey($waInstanceId, $messageId), true, $ttl);
-        }
 
         Cache::put(
             self::outboundHashKey($waInstanceId, $normalizedChat, $content),
             true,
             $ttl
+        );
+    }
+
+    private function rememberOutboundMessageId(int $waInstanceId, string $messageId): void
+    {
+        Cache::put(
+            self::outboundIdKey($waInstanceId, $messageId),
+            true,
+            now()->addMinutes(self::OUTBOUND_CACHE_MINUTES)
         );
     }
 

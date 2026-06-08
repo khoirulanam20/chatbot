@@ -34,11 +34,11 @@ class WhatsAppController extends Controller
             return $this->webhookResponse('ignored', $sessionId);
         }
 
-        if (! empty($data['fromMe'])) {
+        if ($this->isFromMe($data)) {
             return $this->handleAgentReplyWebhook($data, $sessionId);
         }
 
-        $from    = $data['senderPhone'] ?? $payload['from'] ?? '';
+        $from    = $this->resolveCustomerIdentifier($data, $payload);
         $message = $data['content'] ?? $payload['message'] ?? '';
 
         $messageType = $data['type'] ?? 'text';
@@ -102,7 +102,7 @@ class WhatsAppController extends Controller
         }
 
         $normalizedPayload = [
-            'from'       => $data['chatId'] ?? $from,
+            'from'       => $data['chatId'] ?? $this->normalizeCustomerChatId($from),
             'message'    => $message,
             'name'       => $data['senderName'] ?? $from,
             'message_id' => $messageId,
@@ -177,6 +177,52 @@ class WhatsAppController extends Controller
             'customer_id'    => WaChateryService::normalizePhone($customerId),
             'message_id'     => $messageId,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveCustomerIdentifier(array $data, array $payload): string
+    {
+        if (! empty($data['senderPhone'])) {
+            return (string) $data['senderPhone'];
+        }
+
+        if (! empty($data['chatId'])) {
+            return (string) $data['chatId'];
+        }
+
+        return (string) ($payload['from'] ?? '');
+    }
+
+    private function normalizeCustomerChatId(string $identifier): string
+    {
+        if (str_contains($identifier, '@')) {
+            return $identifier;
+        }
+
+        $phone = WaChateryService::normalizePhone($identifier);
+
+        return $phone !== '' ? $phone . '@s.whatsapp.net' : $identifier;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function isFromMe(array $data): bool
+    {
+        $value = $data['fromMe'] ?? false;
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return (bool) $value;
     }
 
     private function resolveWaInstance(?string $sessionId, ?string $phoneNumber): ?WaInstance

@@ -65,7 +65,7 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             'type'           => $type,
         ]);
 
-        $waInstance = WaInstance::find($this->waInstanceId);
+        $waInstance = WaInstance::withoutGlobalScopes()->find($this->waInstanceId);
 
         if (! $waInstance || ! $waInstance->chatbot) {
             Log::warning('WA instance not found', ['id' => $this->waInstanceId]);
@@ -99,16 +99,6 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             $doneKey = "wa_done:{$waInstance->id}:{$messageId}";
             if (Cache::has($doneKey)) {
                 Log::info('WA job skipped: duplicate message', [
-                    'wa_instance_id' => $waInstance->id,
-                    'message_id'     => $messageId,
-                ]);
-
-                return;
-            }
-
-            $lockKey = "wa_lock:{$waInstance->id}:{$messageId}";
-            if (! Cache::add($lockKey, true, now()->addMinutes(10))) {
-                Log::info('WA job skipped: already processing', [
                     'wa_instance_id' => $waInstance->id,
                     'message_id'     => $messageId,
                 ]);
