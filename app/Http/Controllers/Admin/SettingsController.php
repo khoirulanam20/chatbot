@@ -27,10 +27,11 @@ class SettingsController extends Controller
         $tenants = $user->isSuperAdmin() ? Tenant::orderBy('name')->get() : collect();
 
         $global = [
-            'has_ai_api_key'  => filled(config('services.sumopod.api_key')),
-            'ai_base_url'     => config('services.sumopod.base_url', ''),
-            'ai_embed_model'  => config('services.sumopod.embed_model', ''),
-            'ai_chat_model'   => config('services.sumopod.chat_model', ''),
+            'has_ai_api_key'   => filled(config('services.sumopod.api_key')),
+            'ai_base_url'      => config('services.sumopod.base_url', ''),
+            'ai_embed_model'   => config('services.sumopod.embed_model', ''),
+            'ai_chat_model'    => config('services.sumopod.chat_model', ''),
+            'ai_vision_model'  => config('services.sumopod.vision_model', ''),
         ];
 
         $tenantSettings = [
@@ -38,6 +39,7 @@ class SettingsController extends Controller
             'ai_base_url'     => $tenant?->settings[Tenant::AI_BASE_URL] ?? '',
             'ai_embed_model'  => $tenant?->settings[Tenant::AI_EMBED_MODEL] ?? '',
             'ai_chat_model'   => $tenant?->settings[Tenant::AI_CHAT_MODEL] ?? '',
+            'ai_vision_model' => $tenant?->settings[Tenant::AI_VISION_MODEL] ?? '',
         ];
 
         return inertia('settings/Index', [
@@ -57,8 +59,9 @@ class SettingsController extends Controller
             'tenant_id'      => 'nullable|integer|exists:tenants,id',
             'ai_api_key'     => 'nullable|string',
             'ai_base_url'    => 'nullable|url',
-            'ai_embed_model' => 'nullable|string|max:100',
-            'ai_chat_model'  => 'nullable|string|max:100',
+            'ai_embed_model'  => 'nullable|string|max:100',
+            'ai_chat_model'   => 'nullable|string|max:100',
+            'ai_vision_model' => 'nullable|string|max:100',
         ]);
 
         if ($request->filled('ai_embed_model') && ($embedError = SumopodService::validateEmbedModelName($request->ai_embed_model))) {
@@ -88,8 +91,9 @@ class SettingsController extends Controller
         $request->validate([
             'sumopod_api_key'     => 'nullable|string',
             'sumopod_base_url'    => 'required|url',
-            'sumopod_embed_model' => 'required|string|max:100',
-            'sumopod_chat_model'  => 'required|string|max:100',
+            'sumopod_embed_model'  => 'required|string|max:100',
+            'sumopod_chat_model'   => 'required|string|max:100',
+            'sumopod_vision_model' => 'nullable|string|max:100',
         ]);
 
         if ($embedError = SumopodService::validateEmbedModelName($request->sumopod_embed_model)) {
@@ -97,9 +101,10 @@ class SettingsController extends Controller
         }
 
         $updates = [
-            'SUMOPOD_BASE_URL'    => $request->sumopod_base_url,
-            'SUMOPOD_EMBED_MODEL' => $request->sumopod_embed_model,
-            'SUMOPOD_CHAT_MODEL'  => $request->sumopod_chat_model,
+            'SUMOPOD_BASE_URL'     => $request->sumopod_base_url,
+            'SUMOPOD_EMBED_MODEL'  => $request->sumopod_embed_model,
+            'SUMOPOD_CHAT_MODEL'   => $request->sumopod_chat_model,
+            'SUMOPOD_VISION_MODEL' => $request->input('sumopod_vision_model', ''),
         ];
 
         if ($request->filled('sumopod_api_key')) {
@@ -198,8 +203,9 @@ class SettingsController extends Controller
             'tenant_id'      => 'nullable|integer|exists:tenants,id',
             'ai_api_key'     => 'nullable|string',
             'ai_base_url'    => 'nullable|url',
-            'ai_embed_model' => 'nullable|string|max:100',
-            'ai_chat_model'  => 'nullable|string|max:100',
+            'ai_embed_model'  => 'nullable|string|max:100',
+            'ai_chat_model'   => 'nullable|string|max:100',
+            'ai_vision_model' => 'nullable|string|max:100',
         ]);
 
         $user = Auth::user();

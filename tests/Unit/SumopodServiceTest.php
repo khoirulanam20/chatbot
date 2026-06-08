@@ -58,6 +58,44 @@ class SumopodServiceTest extends TestCase
         $service->resolveModel();
     }
 
+    public function test_resolve_vision_model_uses_dedicated_config(): void
+    {
+        config([
+            'services.sumopod.chat_model'   => 'gpt-3.5-turbo',
+            'services.sumopod.vision_model' => 'gpt-4o',
+        ]);
+
+        $service = app(SumopodService::class);
+
+        $this->assertSame('gpt-4o', $service->resolveVisionModel());
+    }
+
+    public function test_resolve_vision_model_falls_back_to_chat_model(): void
+    {
+        config([
+            'services.sumopod.chat_model'   => 'gpt-4o-mini',
+            'services.sumopod.vision_model' => '',
+        ]);
+
+        $service = app(SumopodService::class);
+
+        $this->assertSame('gpt-4o-mini', $service->resolveVisionModel());
+    }
+
+    public function test_resolve_vision_model_uses_tenant_override(): void
+    {
+        config([
+            'services.sumopod.chat_model'   => 'gpt-3.5-turbo',
+            'services.sumopod.vision_model' => 'gpt-4o',
+        ]);
+
+        $service = app(SumopodService::class)->withTenantSettings([
+            'ai_vision_model' => 'gpt-4o-mini',
+        ]);
+
+        $this->assertSame('gpt-4o-mini', $service->resolveVisionModel());
+    }
+
     public function test_validate_embed_model_detects_duplication(): void
     {
         $error = SumopodService::validateEmbedModelName('text-embedding-3-smalltext-embedding-3-small');

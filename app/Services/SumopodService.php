@@ -20,13 +20,15 @@ class SumopodService
     private string $baseUrl;
     private string $embedModel;
     private string $chatModel;
+    private string $visionModel;
 
     public function __construct()
     {
-        $this->apiKey     = config('services.sumopod.api_key', '');
-        $this->baseUrl    = rtrim(config('services.sumopod.base_url', 'https://api.openai.com/v1'), '/');
-        $this->embedModel = config('services.sumopod.embed_model', 'text-embedding-3-small');
-        $this->chatModel  = (string) (config('services.sumopod.chat_model') ?? '');
+        $this->apiKey      = config('services.sumopod.api_key', '');
+        $this->baseUrl     = rtrim(config('services.sumopod.base_url', 'https://api.openai.com/v1'), '/');
+        $this->embedModel  = config('services.sumopod.embed_model', 'text-embedding-3-small');
+        $this->chatModel   = (string) (config('services.sumopod.chat_model') ?? '');
+        $this->visionModel = (string) (config('services.sumopod.vision_model') ?? '');
     }
 
     /**
@@ -52,6 +54,9 @@ class SumopodService
         if (! empty($settings[Tenant::AI_CHAT_MODEL])) {
             $clone->chatModel = $settings[Tenant::AI_CHAT_MODEL];
         }
+        if (! empty($settings[Tenant::AI_VISION_MODEL])) {
+            $clone->visionModel = $settings[Tenant::AI_VISION_MODEL];
+        }
 
         return $clone;
     }
@@ -59,10 +64,11 @@ class SumopodService
     public function getConfig(): array
     {
         return [
-            'api_key'     => $this->apiKey,
-            'base_url'    => $this->baseUrl,
-            'embed_model' => $this->embedModel,
-            'chat_model'  => $this->chatModel,
+            'api_key'      => $this->apiKey,
+            'base_url'     => $this->baseUrl,
+            'embed_model'  => $this->embedModel,
+            'chat_model'   => $this->chatModel,
+            'vision_model' => $this->visionModel !== '' ? $this->visionModel : $this->chatModel,
         ];
     }
 
@@ -76,6 +82,23 @@ class SumopodService
         if ($model === '') {
             throw new \RuntimeException(
                 'Model AI belum dikonfigurasi. Atur di Settings → AI (superadmin).'
+            );
+        }
+
+        return VisionMessageFormatter::normalizeModel($model);
+    }
+
+    /**
+     * Model untuk analisis gambar. Prioritas: override → vision model → chat model.
+     */
+    public function resolveVisionModel(?Chatbot $chatbot = null, ?string $overrideModel = null): string
+    {
+        $model = $overrideModel
+            ?? ($this->visionModel !== '' ? $this->visionModel : $this->chatModel);
+
+        if ($model === '') {
+            throw new \RuntimeException(
+                'Model gambar belum dikonfigurasi. Isi Model Gambar di Settings → AI.'
             );
         }
 
@@ -191,9 +214,10 @@ class SumopodService
     public function testConnection(): array
     {
         $config = [
-            'base_url'    => $this->baseUrl,
-            'embed_model' => $this->embedModel,
-            'chat_model'  => $this->chatModel,
+            'base_url'     => $this->baseUrl,
+            'embed_model'  => $this->embedModel,
+            'chat_model'   => $this->chatModel,
+            'vision_model' => $this->visionModel !== '' ? $this->visionModel : $this->chatModel,
         ];
 
         if ($this->apiKey === '') {

@@ -53,7 +53,7 @@ class RAGService
         }
 
         try {
-            $model = $sumopod->resolveModel($chatbot);
+            $model = $sumopod->resolveVisionModel($chatbot);
         } catch (\RuntimeException $e) {
             $reply = $e->getMessage();
             $this->saveMessage($conversation, 'assistant', $reply);
@@ -65,7 +65,7 @@ class RAGService
         }
 
         if (! VisionMessageFormatter::supportsVision($model)) {
-            $reply = 'Maaf, model AI di Settings belum mendukung analisis gambar. Ubah ke model vision di Settings → AI.';
+            $reply = 'Maaf, model gambar di Settings → AI belum mendukung analisis gambar. Isi Model Gambar dengan model vision (mis. gpt-4o).';
             $this->saveMessage($conversation, 'assistant', $reply);
 
             return $this->wrapResponse($reply, $chatbot, $channel, [

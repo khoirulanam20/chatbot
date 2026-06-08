@@ -38,8 +38,9 @@ return [
     'sumopod' => [
         'api_key'     => env('SUMOPOD_API_KEY'),
         'base_url'    => env('SUMOPOD_BASE_URL', 'https://api.openai.com/v1'),
-        'embed_model' => env('SUMOPOD_EMBED_MODEL', 'text-embedding-3-small'),
-        'chat_model'  => env('SUMOPOD_CHAT_MODEL'),
+        'embed_model'  => env('SUMOPOD_EMBED_MODEL', 'text-embedding-3-small'),
+        'chat_model'   => env('SUMOPOD_CHAT_MODEL'),
+        'vision_model' => env('SUMOPOD_VISION_MODEL'),
     ],
 
     'chatery' => [

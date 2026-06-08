@@ -12,6 +12,7 @@ interface AiSettingsProps {
     ai_base_url: string;
     ai_embed_model: string;
     ai_chat_model: string;
+    ai_vision_model: string;
 }
 
 interface Props {
@@ -48,6 +49,7 @@ export default function SettingsIndex({
         ai_base_url: tenantSettings.ai_base_url ?? '',
         ai_embed_model: tenantSettings.ai_embed_model ?? '',
         ai_chat_model: tenantSettings.ai_chat_model ?? '',
+        ai_vision_model: tenantSettings.ai_vision_model ?? '',
     });
 
     const globalForm = useForm({
@@ -55,6 +57,7 @@ export default function SettingsIndex({
         sumopod_base_url: global.ai_base_url ?? '',
         sumopod_embed_model: global.ai_embed_model ?? '',
         sumopod_chat_model: global.ai_chat_model ?? '',
+        sumopod_vision_model: global.ai_vision_model ?? '',
         context_tenant_id: tenant?.id ? String(tenant.id) : '',
     });
 
@@ -96,6 +99,7 @@ export default function SettingsIndex({
                     ai_base_url: tenantForm.data.ai_base_url || undefined,
                     ai_embed_model: tenantForm.data.ai_embed_model || undefined,
                     ai_chat_model: tenantForm.data.ai_chat_model || undefined,
+                    ai_vision_model: tenantForm.data.ai_vision_model || undefined,
                 }),
             });
             if (res.status === 419) {
@@ -201,6 +205,18 @@ export default function SettingsIndex({
                             />
                         </div>
                     </div>
+                    <div>
+                        <Label>Model Gambar (Vision)</Label>
+                        <Input
+                            value={tenantForm.data.ai_vision_model}
+                            onChange={(e) => tenantForm.setData('ai_vision_model', e.target.value)}
+                            className="mt-1 font-mono"
+                            placeholder={global.ai_vision_model || global.ai_chat_model || 'gpt-4o'}
+                        />
+                        <p className="mt-1 text-xs text-muted">
+                            Model khusus analisis gambar. Kosongkan untuk memakai model chat global.
+                        </p>
+                    </div>
                     <div className="flex gap-2">
                         <Button type="submit" disabled={tenantForm.processing}>Simpan Pengaturan Tenant</Button>
                         <Button type="button" variant="outline" onClick={testAI}>Test Koneksi AI</Button>
@@ -280,6 +296,18 @@ export default function SettingsIndex({
                                     required
                                 />
                             </div>
+                        </div>
+                        <div>
+                            <Label>Vision Model (Gambar)</Label>
+                            <Input
+                                value={globalForm.data.sumopod_vision_model}
+                                onChange={(e) => globalForm.setData('sumopod_vision_model', e.target.value)}
+                                className="mt-1 font-mono"
+                                placeholder={globalForm.data.sumopod_chat_model || 'gpt-4o'}
+                            />
+                            <p className="mt-1 text-xs text-muted">
+                                Opsional. Jika kosong, analisis gambar memakai model chat.
+                            </p>
                         </div>
                         <Button type="submit" disabled={globalForm.processing}>Simpan Global Default</Button>
                     </form>

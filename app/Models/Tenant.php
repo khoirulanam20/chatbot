@@ -11,13 +11,15 @@ class Tenant extends Model
     public const AI_API_KEY     = 'ai_api_key';
     public const AI_BASE_URL    = 'ai_base_url';
     public const AI_EMBED_MODEL = 'ai_embed_model';
-    public const AI_CHAT_MODEL  = 'ai_chat_model';
+    public const AI_CHAT_MODEL   = 'ai_chat_model';
+    public const AI_VISION_MODEL = 'ai_vision_model';
 
     public const AI_FIELDS = [
         self::AI_API_KEY,
         self::AI_BASE_URL,
         self::AI_EMBED_MODEL,
         self::AI_CHAT_MODEL,
+        self::AI_VISION_MODEL,
     ];
 
     protected $fillable = [
@@ -65,7 +67,8 @@ class Tenant extends Model
             self::AI_API_KEY     => $this->decryptApiKey($settings[self::AI_API_KEY] ?? null),
             self::AI_BASE_URL    => isset($settings[self::AI_BASE_URL]) ? trim((string) $settings[self::AI_BASE_URL]) : null,
             self::AI_EMBED_MODEL => isset($settings[self::AI_EMBED_MODEL]) ? trim((string) $settings[self::AI_EMBED_MODEL]) : null,
-            self::AI_CHAT_MODEL  => isset($settings[self::AI_CHAT_MODEL]) ? trim((string) $settings[self::AI_CHAT_MODEL]) : null,
+            self::AI_CHAT_MODEL   => isset($settings[self::AI_CHAT_MODEL]) ? trim((string) $settings[self::AI_CHAT_MODEL]) : null,
+            self::AI_VISION_MODEL => isset($settings[self::AI_VISION_MODEL]) ? trim((string) $settings[self::AI_VISION_MODEL]) : null,
         ], fn ($v) => $v !== null && $v !== '');
     }
 
