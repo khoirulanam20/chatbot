@@ -46,7 +46,7 @@ class AgentSessionService
 
     public function isAiBlocked(Conversation $conversation): bool
     {
-        return ! $conversation->is_ai_active || $conversation->status === 'handoff';
+        return $this->isInHandoff($conversation);
     }
 
     /**
@@ -79,27 +79,38 @@ class AgentSessionService
 
     public function enterHandoffByKeyword(Conversation $conversation, string $keyword): void
     {
-        $conversation->update([
-            'is_ai_active'             => false,
-            'status'                   => 'handoff',
-            'assigned_agent_id'        => null,
-            'agent_session_started_at' => now(),
-            'agent_session_ends_at'    => null,
-        ]);
+        $this->applyHandoffState($conversation);
+        $conversation->update(['assigned_agent_id' => null]);
     }
 
     public function takeOver(Conversation $conversation, User $agent): void
     {
-        $conversation->update([
-            'is_ai_active'             => false,
-            'status'                   => 'handoff',
-            'assigned_agent_id'        => $agent->id,
-            'agent_session_started_at' => now(),
-            'agent_session_ends_at'    => null,
-        ]);
+        $this->applyHandoffState($conversation, $agent);
+    }
+
+    /**
+     * Pause AI saat admin (panel atau WhatsApp langsung) membalas customer.
+     * Hanya berlaku jika toggle pause_ai_on_human_reply aktif di chatbot.
+     */
+    public function pauseForHumanReply(Conversation $conversation, ?User $agent = null): bool
+    {
+        $conversation->loadMissing('chatbot');
+
+        if (! $conversation->chatbot?->isPauseAiOnHumanReplyEnabled()) {
+            return false;
+        }
+
+        $this->applyHandoffState($conversation, $agent);
+
+        return true;
     }
 
     public function startSession(Conversation $conversation, ?User $agent = null): void
+    {
+        $this->applyHandoffState($conversation, $agent);
+    }
+
+    private function applyHandoffState(Conversation $conversation, ?User $agent = null): void
     {
         $updates = [
             'is_ai_active'             => false,

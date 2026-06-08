@@ -74,6 +74,7 @@ class ChatbotConfigController extends Controller
                 'takeover_keywords' => [],
                 'takeover_idle_minutes' => 30,
                 'takeover_hold_message' => \App\Services\AgentSessionService::DEFAULT_TAKEOVER_HOLD_MESSAGE,
+                'pause_ai_on_human_reply' => true,
             ],
         ]);
 
@@ -111,8 +112,9 @@ class ChatbotConfigController extends Controller
             'agent_session_minutes'  => 'nullable|integer|min:1|max:1440',
             'agent_session_message'  => 'nullable|string|max:500',
             'takeover_keywords'      => 'nullable|string',
-            'takeover_idle_minutes'  => 'nullable|integer|min:1|max:1440',
-            'takeover_hold_message'  => 'nullable|string|max:500',
+            'takeover_idle_minutes'     => 'nullable|integer|min:1|max:1440',
+            'takeover_hold_message'     => 'nullable|string|max:500',
+            'pause_ai_on_human_reply'   => 'nullable|boolean',
         ]);
 
         $takeoverKeywords = $request->takeover_keywords
@@ -132,6 +134,7 @@ class ChatbotConfigController extends Controller
                 ?? 30),
             'takeover_hold_message' => $request->takeover_hold_message
                 ?: \App\Services\AgentSessionService::DEFAULT_TAKEOVER_HOLD_MESSAGE,
+            'pause_ai_on_human_reply' => $request->boolean('pause_ai_on_human_reply'),
         ]);
         $data['is_active']        = $request->boolean('is_active');
         $data['handoff_triggers'] = $takeoverKeywords;

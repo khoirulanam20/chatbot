@@ -3,9 +3,12 @@
 namespace App\Services;
 
 use App\Models\WaInstance;
+use Illuminate\Support\Facades\Cache;
 
 class WaOutboundService
 {
+    private const OUTBOUND_CACHE_MINUTES = 10;
+
     public function __construct(
         private WaChateryService $chatery
     ) {}
@@ -18,7 +21,7 @@ class WaOutboundService
             ? max(500, min(10000, (int) ($waInstance->typing_duration_ms ?? 2000)))
             : null;
 
-        $sent = $this->chatery->sendMessage(
+        $result = $this->chatery->sendMessage(
             $waInstance->api_key,
             $to,
             $message,
@@ -26,11 +29,15 @@ class WaOutboundService
             $typingTime
         );
 
+        if ($result['success']) {
+            $this->rememberOutbound($waInstance->id, $to, $message, $result['message_id']);
+        }
+
         if ($waInstance->typing_enabled) {
             $this->chatery->clearTyping($waInstance->api_key, $to, $sessionId);
         }
 
-        return $sent;
+        return $result['success'];
     }
 
     /**
@@ -64,7 +71,7 @@ class WaOutboundService
                 $typingTime = max(500, min(4000, mb_strlen($chunk) * 40));
             }
 
-            $sent = $this->chatery->sendMessage(
+            $result = $this->chatery->sendMessage(
                 $waInstance->api_key,
                 $to,
                 $chunk,
@@ -72,7 +79,9 @@ class WaOutboundService
                 $typingTime
             );
 
-            if (! $sent) {
+            if ($result['success']) {
+                $this->rememberOutbound($waInstance->id, $to, $chunk, $result['message_id']);
+            } else {
                 $allSent = false;
             }
 
@@ -86,5 +95,50 @@ class WaOutboundService
         }
 
         return $allSent;
+    }
+
+    public static function isOutboundEcho(
+        int $waInstanceId,
+        ?string $messageId,
+        string $chatId,
+        string $content
+    ): bool {
+        if ($messageId && Cache::has(self::outboundIdKey($waInstanceId, $messageId))) {
+            return true;
+        }
+
+        $normalizedChat = WaChateryService::normalizePhone($chatId);
+
+        return Cache::has(self::outboundHashKey($waInstanceId, $normalizedChat, $content));
+    }
+
+    private function rememberOutbound(
+        int $waInstanceId,
+        string $to,
+        string $content,
+        ?string $messageId
+    ): void {
+        $ttl = now()->addMinutes(self::OUTBOUND_CACHE_MINUTES);
+        $normalizedChat = WaChateryService::normalizePhone($to);
+
+        if ($messageId) {
+            Cache::put(self::outboundIdKey($waInstanceId, $messageId), true, $ttl);
+        }
+
+        Cache::put(
+            self::outboundHashKey($waInstanceId, $normalizedChat, $content),
+            true,
+            $ttl
+        );
+    }
+
+    private static function outboundIdKey(int $waInstanceId, string $messageId): string
+    {
+        return "wa_outbound:{$waInstanceId}:id:{$messageId}";
+    }
+
+    private static function outboundHashKey(int $waInstanceId, string $chatId, string $content): string
+    {
+        return 'wa_outbound:' . $waInstanceId . ':hash:' . $chatId . ':' . md5($content);
     }
 }

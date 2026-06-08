@@ -14,13 +14,16 @@ class WaChateryService
         $this->baseUrl = rtrim(config('services.chatery.base_url', 'https://wa.firstudio.id/api'), '/') . '/';
     }
 
+    /**
+     * @return array{success: bool, message_id: ?string}
+     */
     public function sendMessage(
         string $apiKey,
         string $to,
         string $message,
         string $sessionId = 'default',
         ?int $typingTime = null
-    ): bool {
+    ): array {
         try {
             $payload = [
                 'sessionId' => $sessionId,
@@ -46,13 +49,23 @@ class WaChateryService
                     'status' => $response->status(),
                     'body'   => $response->body(),
                 ]);
-                return false;
+
+                return ['success' => false, 'message_id' => null];
             }
 
-            return true;
+            $messageId = $response->json('data.id')
+                ?? $response->json('data.messageId')
+                ?? $response->json('messageId')
+                ?? $response->json('id');
+
+            return [
+                'success'    => true,
+                'message_id' => is_string($messageId) ? $messageId : null,
+            ];
         } catch (\Exception $e) {
             Log::error('WA Chatery exception', ['message' => $e->getMessage()]);
-            return false;
+
+            return ['success' => false, 'message_id' => null];
         }
     }
 
@@ -234,8 +247,12 @@ class WaChateryService
         }
     }
 
-    private function normalizePhone(string $phone): string
+    public static function normalizePhone(string $phone): string
     {
+        if (str_contains($phone, '@')) {
+            $phone = explode('@', $phone)[0];
+        }
+
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
         if (str_starts_with($phone, '0')) {

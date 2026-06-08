@@ -90,9 +90,7 @@ class ConversationController extends Controller
             return back()->withErrors(['message' => 'Anda tidak dapat membalas percakapan ini.']);
         }
 
-        if ($conversation->is_ai_active || $conversation->assigned_agent_id === null) {
-            $this->agentSession->takeOver($conversation, $agent);
-        }
+        $this->agentSession->pauseForHumanReply($conversation, $agent);
 
         Message::create([
             'conversation_id' => $conversation->id,
@@ -126,6 +124,11 @@ class ConversationController extends Controller
             'caption' => 'nullable|string|max:500',
         ]);
 
+        $agent = Auth::user();
+        if (! $agent instanceof User || ! $this->agentSession->canAgentReply($conversation, $agent)) {
+            return back()->withErrors(['image' => 'Anda tidak dapat membalas percakapan ini.']);
+        }
+
         $conversation->load('chatbot');
 
         try {
@@ -140,6 +143,8 @@ class ConversationController extends Controller
 
         $caption = $request->caption ?: '[Gambar]';
 
+        $this->agentSession->pauseForHumanReply($conversation, $agent);
+
         Message::create([
             'conversation_id' => $conversation->id,
             'role'            => 'agent',
@@ -151,15 +156,6 @@ class ConversationController extends Controller
                 'size' => $stored['size'],
             ],
         ]);
-
-        $agent = Auth::user();
-        if (! $agent instanceof User || ! $this->agentSession->canAgentReply($conversation, $agent)) {
-            return back()->withErrors(['image' => 'Anda tidak dapat membalas percakapan ini.']);
-        }
-
-        if ($conversation->is_ai_active || $conversation->assigned_agent_id === null) {
-            $this->agentSession->takeOver($conversation, $agent);
-        }
 
         $this->agentSession->touchActivity($conversation);
 

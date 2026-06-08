@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessWhatsAppAgentReplyJob;
 use App\Jobs\ProcessWhatsAppMessageJob;
 use App\Models\WaInstance;
+use App\Services\WaChateryService;
+use App\Services\WaOutboundService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -32,7 +35,7 @@ class WhatsAppController extends Controller
         }
 
         if (! empty($data['fromMe'])) {
-            return $this->webhookResponse('ignored_self', $sessionId);
+            return $this->handleAgentReplyWebhook($data, $sessionId);
         }
 
         $from    = $data['senderPhone'] ?? $payload['from'] ?? '';
@@ -68,17 +71,11 @@ class WhatsAppController extends Controller
         }
         RateLimiter::hit($limiter, 60);
 
-        $phoneNumber = $data['senderPhone'] ?? null;
-
-        $waInstance = WaInstance::withoutGlobalScopes()
-            ->when($sessionId, fn ($q) => $q->where('instance_id', $sessionId))
-            ->when(! $sessionId && $phoneNumber, fn ($q) => $q->where('phone_number', $phoneNumber))
-            ->whereIn('status', ['active', 'inactive'])
-            ->first();
+        $waInstance = $this->resolveWaInstance($sessionId, $data['senderPhone'] ?? null);
 
         if (! $waInstance) {
             return $this->webhookResponse('no_instance', $sessionId, [
-                'phone' => $phoneNumber,
+                'phone' => $data['senderPhone'] ?? null,
                 'from'  => $from,
             ]);
         }
@@ -122,6 +119,73 @@ class WhatsAppController extends Controller
             'from'           => $normalizedPayload['from'],
             'message_id'     => $messageId,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function handleAgentReplyWebhook(array $data, ?string $sessionId): JsonResponse
+    {
+        $customerId = $data['chatId'] ?? $data['recipientPhone'] ?? '';
+        $message    = $data['content'] ?? '';
+        $messageType = $data['type'] ?? 'text';
+        $isImage     = in_array($messageType, ['image', 'imageMessage'], true);
+        $isText      = in_array($messageType, ['text', 'chat'], true);
+
+        if ($customerId === '' || (! $isText && ! $isImage)) {
+            return $this->webhookResponse('skipped_self', $sessionId, [
+                'customerId'  => $customerId,
+                'messageType' => $messageType,
+            ]);
+        }
+
+        if ($isImage && $message === '') {
+            $message = $data['caption'] ?? '[Gambar]';
+        }
+
+        if ($isText && $message === '') {
+            return $this->webhookResponse('skipped_self', $sessionId, ['customerId' => $customerId]);
+        }
+
+        $waInstance = $this->resolveWaInstance($sessionId, $data['senderPhone'] ?? null);
+
+        if (! $waInstance) {
+            return $this->webhookResponse('no_instance', $sessionId, ['customerId' => $customerId]);
+        }
+
+        $messageId = $data['id'] ?? $data['messageId'] ?? null;
+
+        if (WaOutboundService::isOutboundEcho($waInstance->id, $messageId, $customerId, $message)) {
+            return $this->webhookResponse('ignored_outbound_echo', $sessionId, [
+                'wa_instance_id' => $waInstance->id,
+                'message_id'     => $messageId,
+            ]);
+        }
+
+        ProcessWhatsAppAgentReplyJob::dispatch([
+            'customer_id' => $customerId,
+            'message'     => $message,
+            'message_id'  => $messageId,
+            'type'        => $isImage ? 'image' : 'text',
+            'media_url'   => $isImage
+                ? ($data['mediaUrl'] ?? $data['url'] ?? $data['media'] ?? null)
+                : null,
+        ], $waInstance->id);
+
+        return $this->webhookResponse('queued_agent_reply', $sessionId, [
+            'wa_instance_id' => $waInstance->id,
+            'customer_id'    => WaChateryService::normalizePhone($customerId),
+            'message_id'     => $messageId,
+        ]);
+    }
+
+    private function resolveWaInstance(?string $sessionId, ?string $phoneNumber): ?WaInstance
+    {
+        return WaInstance::withoutGlobalScopes()
+            ->when($sessionId, fn ($q) => $q->where('instance_id', $sessionId))
+            ->when(! $sessionId && $phoneNumber, fn ($q) => $q->where('phone_number', $phoneNumber))
+            ->whereIn('status', ['active', 'inactive'])
+            ->first();
     }
 
     /**

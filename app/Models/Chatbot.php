@@ -100,6 +100,13 @@ class Chatbot extends Model
         return max(1, min(1440, $minutes));
     }
 
+    public function isPauseAiOnHumanReplyEnabled(): bool
+    {
+        $value = $this->settings['pause_ai_on_human_reply'] ?? true;
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
     public function getTakeoverHoldMessage(): string
     {
         $message = $this->settings['takeover_hold_message'] ?? null;

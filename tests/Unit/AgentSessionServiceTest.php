@@ -36,7 +36,7 @@ class AgentSessionServiceTest extends TestCase
         $this->assertFalse($service->isAiBlocked($active));
 
         $orphan = new Conversation(['is_ai_active' => false, 'status' => 'open']);
-        $this->assertTrue($service->isAiBlocked($orphan));
+        $this->assertFalse($service->isAiBlocked($orphan));
 
         $handoff = new Conversation(['is_ai_active' => false, 'status' => 'handoff']);
         $this->assertTrue($service->isAiBlocked($handoff));

@@ -28,6 +28,7 @@ interface Props {
             takeover_keywords?: string[];
             takeover_idle_minutes?: number;
             takeover_hold_message?: string;
+            pause_ai_on_human_reply?: boolean;
         };
         embedConfig?: {
             primary_color?: string;
@@ -67,6 +68,7 @@ export default function ChatbotEdit({ chatbot }: Props) {
             chatbot.settings?.takeover_idle_minutes ?? chatbot.settings?.agent_session_minutes ?? 30
         ),
         takeover_hold_message: chatbot.settings?.takeover_hold_message ?? '',
+        pause_ai_on_human_reply: chatbot.settings?.pause_ai_on_human_reply ?? true,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -120,9 +122,21 @@ export default function ChatbotEdit({ chatbot }: Props) {
                         </div>
                         <hr className="border-hairline" />
                         <h2 className="font-semibold">Takeover Admin (WhatsApp)</h2>
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={data.pause_ai_on_human_reply}
+                                onChange={(e) => setData('pause_ai_on_human_reply', e.target.checked)}
+                            />
+                            Pause AI saat admin membalas (panel atau WhatsApp)
+                        </label>
                         <p className="text-sm text-muted">
-                            Saat takeover aktif, AI tidak membalas. AI aktif kembali otomatis setelah tidak ada pesan
-                            selama durasi idle di bawah.
+                            Jika aktif, AI berhenti membalas setelah admin ikut chat. AI aktif kembali setelah
+                            tidak ada pesan baru selama durasi idle di bawah.
+                        </p>
+                        <p className="text-xs text-muted">
+                            Keyword takeover di bawah selalu mem-pause AI. Toggle di atas hanya mengatur pause
+                            otomatis saat admin membalas (panel atau WhatsApp).
                         </p>
                         <div>
                             <Label>Keyword takeover</Label>
@@ -135,19 +149,24 @@ export default function ChatbotEdit({ chatbot }: Props) {
                             />
                             <p className="mt-1 text-xs text-muted">Satu keyword per baris. Customer ketik keyword → AI berhenti, admin ditunggu.</p>
                         </div>
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <Label>Idle sebelum AI aktif lagi (menit)</Label>
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    max={1440}
-                                    value={data.takeover_idle_minutes}
-                                    onChange={(e) => setData('takeover_idle_minutes', e.target.value)}
-                                    className="mt-1"
-                                />
+                        {data.pause_ai_on_human_reply && (
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <Label>Durasi pause AI setelah admin membalas (menit)</Label>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={1440}
+                                        value={data.takeover_idle_minutes}
+                                        onChange={(e) => setData('takeover_idle_minutes', e.target.value)}
+                                        className="mt-1"
+                                    />
+                                    <p className="mt-1 text-xs text-muted">
+                                        Berlaku untuk balasan dari panel admin maupun WhatsApp langsung.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
+                        )}
                         <div>
                             <Label>Pesan saat keyword terdeteksi</Label>
                             <Input

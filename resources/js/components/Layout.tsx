@@ -76,6 +76,9 @@ export function Layout({ children }: LayoutProps) {
                     })}
                 </nav>
                 <div className="border-t border-surface-dark-elevated p-4">
+                    <p className="mb-3 text-xs text-on-dark-soft">
+                        Version: {props.app?.version ?? '—'}
+                    </p>
                     <div className="mb-3 flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-dark-elevated text-sm font-medium">
                             {user?.name?.charAt(0)?.toUpperCase()}

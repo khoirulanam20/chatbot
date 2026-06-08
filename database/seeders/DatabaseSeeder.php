@@ -58,6 +58,7 @@ class DatabaseSeeder extends Seeder
             'settings'        => [
                 'takeover_keywords' => ['Hubungi Admin', 'hubungi admin', 'cs'],
                 'takeover_idle_minutes' => 30,
+                'pause_ai_on_human_reply' => true,
                 'takeover_hold_message' => 'Baik, permintaan Anda sudah diteruskan ke admin. Mohon tunggu sebentar...',
                 'agent_session_minutes' => 30,
                 'agent_session_message' => 'Agen kami sedang menangani percakapan Anda. Mohon tunggu sebentar.',

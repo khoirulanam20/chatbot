@@ -23,6 +23,22 @@ class ChatbotTakeoverTest extends TestCase
         );
     }
 
+    public function test_pause_ai_on_human_reply_defaults_to_enabled(): void
+    {
+        $chatbot = new Chatbot(['settings' => []]);
+
+        $this->assertTrue($chatbot->isPauseAiOnHumanReplyEnabled());
+    }
+
+    public function test_pause_ai_on_human_reply_respects_setting(): void
+    {
+        $enabled = new Chatbot(['settings' => ['pause_ai_on_human_reply' => true]]);
+        $disabled = new Chatbot(['settings' => ['pause_ai_on_human_reply' => false]]);
+
+        $this->assertTrue($enabled->isPauseAiOnHumanReplyEnabled());
+        $this->assertFalse($disabled->isPauseAiOnHumanReplyEnabled());
+    }
+
     public function test_takeover_idle_minutes_fallback_chain(): void
     {
         $chatbot = new Chatbot(['settings' => []]);

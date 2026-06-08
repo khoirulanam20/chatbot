@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\WaInstance;
@@ -11,6 +10,7 @@ use App\Services\ChatImageService;
 use App\Services\RAGService;
 use App\Services\TakeoverNotificationService;
 use App\Services\WaChateryService;
+use App\Services\WaConversationResolver;
 use App\Services\WaOutboundService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -49,7 +49,8 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
         AgentSessionService $agentSession,
         TakeoverNotificationService $takeoverNotifications,
         ChatImageService $chatImageService,
-        WaChateryService $waChatery
+        WaChateryService $waChatery,
+        WaConversationResolver $conversationResolver
     ): void {
         $from      = $this->payload['from'] ?? '';
         $text      = $this->payload['message'] ?? '';
@@ -116,38 +117,14 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             }
         }
 
-        $contact = Contact::withoutGlobalScopes()->firstOrCreate(
-            [
-                'tenant_id'  => $waInstance->tenant_id,
-                'identifier' => $from,
-                'channel'    => 'whatsapp',
-            ],
-            ['name' => $from]
-        );
+        $contact = $conversationResolver->findOrCreateContact($waInstance, $from);
 
         if ($contact->is_blacklisted) {
             Log::info('WA job skipped: blacklisted contact', ['from' => $from]);
             return;
         }
 
-        $conversation = Conversation::where('chatbot_id', $chatbot->id)
-            ->where('contact_id', $contact->id)
-            ->whereIn('status', ['open', 'handoff'])
-            ->where('channel', 'whatsapp')
-            ->where('last_message_at', '>=', now()->subHours(24))
-            ->latest()
-            ->first();
-
-        if (! $conversation) {
-            $conversation = Conversation::create([
-                'chatbot_id' => $chatbot->id,
-                'contact_id' => $contact->id,
-                'channel'    => 'whatsapp',
-                'status'     => 'open',
-                'is_ai_active' => true,
-                'last_message_at' => now(),
-            ]);
-        }
+        $conversation = $conversationResolver->findOrCreateConversation($waInstance, $contact);
 
         $conversation->loadMissing('chatbot');
         $conversation = $agentSession->prepareForInbound($conversation);
