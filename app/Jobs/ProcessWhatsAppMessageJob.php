@@ -13,6 +13,7 @@ use App\Services\TakeoverNotificationService;
 use App\Services\WaChateryService;
 use App\Services\WaOutboundService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -21,18 +22,25 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
-class ProcessWhatsAppMessageJob implements ShouldQueue
+class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 180;
-    public int $tries   = 2;
+    public int $tries   = 1;
 
     public function __construct(
         public readonly array $payload,
         public readonly int $waInstanceId
     ) {
         $this->onQueue('whatsapp');
+    }
+
+    public function uniqueId(): string
+    {
+        $messageId = $this->payload['message_id'] ?? 'no-id';
+
+        return "{$this->waInstanceId}:{$messageId}";
     }
 
     public function handle(
@@ -93,6 +101,17 @@ class ProcessWhatsAppMessageJob implements ShouldQueue
                     'wa_instance_id' => $waInstance->id,
                     'message_id'     => $messageId,
                 ]);
+
+                return;
+            }
+
+            $lockKey = "wa_lock:{$waInstance->id}:{$messageId}";
+            if (! Cache::add($lockKey, true, now()->addMinutes(10))) {
+                Log::info('WA job skipped: already processing', [
+                    'wa_instance_id' => $waInstance->id,
+                    'message_id'     => $messageId,
+                ]);
+
                 return;
             }
         }

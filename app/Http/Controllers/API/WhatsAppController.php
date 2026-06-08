@@ -93,6 +93,15 @@ class WhatsAppController extends Controller
                     'message_id'     => $messageId,
                 ]);
             }
+
+            $lockKey = "wa_lock:{$waInstance->id}:{$messageId}";
+            if (! Cache::add($lockKey, true, now()->addMinutes(10))) {
+                return $this->webhookResponse('duplicate', $sessionId, [
+                    'wa_instance_id' => $waInstance->id,
+                    'message_id'     => $messageId,
+                    'reason'         => 'processing',
+                ]);
+            }
         }
 
         $normalizedPayload = [

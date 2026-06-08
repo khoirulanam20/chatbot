@@ -57,12 +57,16 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
+        $this->authorize('view', $user);
+
         $tenants = Auth::user()->isSuperAdmin() ? Tenant::all() : collect([Auth::user()->tenant]);
         return inertia('users/Edit', ['user' => $user, 'tenants' => $tenants]);
     }
 
     public function update(Request $request, User $user)
     {
+        $this->authorize('update', $user);
+
         $request->validate([
             'name'     => 'required|string|max:100',
             'email'    => 'required|email|unique:users,email,' . $user->id,
@@ -83,6 +87,8 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
+        $this->authorize('delete', $user);
+
         if ($user->id === Auth::id()) {
             return back()->withErrors(['error' => 'Tidak bisa menghapus diri sendiri.']);
         }

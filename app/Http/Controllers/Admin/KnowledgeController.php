@@ -35,6 +35,8 @@ class KnowledgeController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', KnowledgeDocument::class);
+
         $request->validate([
             'chatbot_id'  => 'required|exists:chatbots,id',
             'description' => 'nullable|string|max:255',
@@ -44,6 +46,8 @@ class KnowledgeController extends Controller
         ]);
 
         $chatbot = Chatbot::findOrFail($request->chatbot_id);
+        $this->authorize('update', $chatbot);
+
         $uploaded = [];
 
         foreach ($request->file('files') as $file) {
@@ -71,6 +75,8 @@ class KnowledgeController extends Controller
 
     public function storeFromUrl(Request $request)
     {
+        $this->authorize('create', KnowledgeDocument::class);
+
         $request->validate([
             'chatbot_id'  => 'required|exists:chatbots,id',
             'url'         => 'required|url|max:2048',
@@ -82,6 +88,8 @@ class KnowledgeController extends Controller
         ]);
 
         $chatbot  = Chatbot::findOrFail($request->chatbot_id);
+        $this->authorize('update', $chatbot);
+
         $url      = $request->url;
         $maxPages = $request->crawl_mode === 'crawl' ? ($request->max_pages ?? 50) : 1;
         $name     = $request->name ?: parse_url($url, PHP_URL_HOST) . parse_url($url, PHP_URL_PATH);
@@ -106,6 +114,8 @@ class KnowledgeController extends Controller
 
     public function destroy(KnowledgeDocument $document)
     {
+        $this->authorize('delete', $document);
+
         if ($document->type !== 'url') {
             Storage::disk('local')->delete($document->path);
         }
@@ -117,6 +127,8 @@ class KnowledgeController extends Controller
 
     public function reindex(KnowledgeDocument $document)
     {
+        $this->authorize('update', $document);
+
         $document->update(['status' => 'queued', 'error_message' => null]);
         ProcessDocumentJob::dispatch($document->id);
 
@@ -125,6 +137,8 @@ class KnowledgeController extends Controller
 
     public function show(KnowledgeDocument $document)
     {
+        $this->authorize('view', $document);
+
         $chunks = $document->chunks()->orderBy('chunk_index')->paginate(20);
         return inertia('knowledge/Show', [
             'document' => $document,

@@ -14,22 +14,31 @@ class SettingsController extends Controller
 {
     public function index()
     {
-        $user   = Auth::user();
-        $tenant = $user->isSuperAdmin()
-            ? Tenant::find(request('tenant_id') ?? $user->tenant_id)
-            : $user->tenant;
+        $user = Auth::user();
+
+        if ($user->isSuperAdmin()) {
+            $tenant = Tenant::find(request('tenant_id'))
+                ?? ($user->tenant_id ? Tenant::find($user->tenant_id) : null)
+                ?? Tenant::orderBy('name')->first();
+        } else {
+            $tenant = $user->tenant;
+        }
 
         $tenants = $user->isSuperAdmin() ? Tenant::orderBy('name')->get() : collect();
 
-        // Pengaturan efektif: tenant override + global default
         $global = [
-            'ai_api_key'     => config('services.sumopod.api_key', ''),
-            'ai_base_url'    => config('services.sumopod.base_url', ''),
-            'ai_embed_model' => config('services.sumopod.embed_model', ''),
-            'ai_chat_model'  => config('services.sumopod.chat_model', ''),
+            'has_ai_api_key'  => filled(config('services.sumopod.api_key')),
+            'ai_base_url'     => config('services.sumopod.base_url', ''),
+            'ai_embed_model'  => config('services.sumopod.embed_model', ''),
+            'ai_chat_model'   => config('services.sumopod.chat_model', ''),
         ];
 
-        $tenantSettings = $tenant?->settings ?? [];
+        $tenantSettings = [
+            'has_ai_api_key'  => $tenant?->hasAiApiKey() ?? false,
+            'ai_base_url'     => $tenant?->settings[Tenant::AI_BASE_URL] ?? '',
+            'ai_embed_model'  => $tenant?->settings[Tenant::AI_EMBED_MODEL] ?? '',
+            'ai_chat_model'   => $tenant?->settings[Tenant::AI_CHAT_MODEL] ?? '',
+        ];
 
         return inertia('settings/Index', [
             'global' => $global,
@@ -42,12 +51,19 @@ class SettingsController extends Controller
 
     public function update(Request $request)
     {
+        $this->authorizeAdmin();
+
         $request->validate([
+            'tenant_id'      => 'nullable|integer|exists:tenants,id',
             'ai_api_key'     => 'nullable|string',
             'ai_base_url'    => 'nullable|url',
             'ai_embed_model' => 'nullable|string|max:100',
             'ai_chat_model'  => 'nullable|string|max:100',
         ]);
+
+        if ($request->filled('ai_embed_model') && ($embedError = SumopodService::validateEmbedModelName($request->ai_embed_model))) {
+            return back()->withErrors(['ai_embed_model' => $embedError]);
+        }
 
         $user = Auth::user();
 
@@ -61,9 +77,7 @@ class SettingsController extends Controller
             return back()->withErrors(['tenant' => 'Tenant tidak ditemukan.']);
         }
 
-        $tenant->updateAiSettings($request->only([
-            'ai_api_key', 'ai_base_url', 'ai_embed_model', 'ai_chat_model',
-        ]));
+        $tenant->updateAiSettings($request->only(Tenant::AI_FIELDS));
 
         return $this->redirectToSettingsIndex($tenant)
             ->with('success', "Pengaturan AI untuk tenant \"{$tenant->name}\" berhasil disimpan!");
@@ -88,14 +102,16 @@ class SettingsController extends Controller
             'SUMOPOD_CHAT_MODEL'  => $request->sumopod_chat_model,
         ];
 
-        // Jangan timpa API key jika field dikosongkan (password sering tidak dikirim / kosong saat tidak diubah)
         if ($request->filled('sumopod_api_key')) {
             $updates['SUMOPOD_API_KEY'] = $request->sumopod_api_key;
         }
 
-        $this->mergeEnvValues(base_path('.env'), $updates);
-
-        Artisan::call('config:clear');
+        try {
+            $this->mergeEnvValues(base_path('.env'), $updates);
+            Artisan::call('config:clear');
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['global' => $e->getMessage()]);
+        }
 
         $tenant = null;
         if (Auth::user()->isSuperAdmin() && $request->filled('context_tenant_id')) {
@@ -107,8 +123,6 @@ class SettingsController extends Controller
     }
 
     /**
-     * Gabungkan nilai ke .env baris-per-baris agar aman untuk karakter $ dan lainnya (preg_replace sebelumnya bisa merusak).
-     *
      * @param  array<string, string>  $updates
      */
     private function mergeEnvValues(string $path, array $updates): void
@@ -158,12 +172,10 @@ class SettingsController extends Controller
             return "{$key}=";
         }
 
-        // Izinkan: alphanumeric, underscore, hyphen, dot, slash, @, colon tanpa quote
         if (preg_match('/^[\w\-.\/@:]+$/u', $value) === 1) {
             return "{$key}={$value}";
         }
 
-        // Jika ada spasi, tanda kutip, atau karakter khusus lain, bungkus dengan double quote
         $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
 
         return "{$key}=\"{$escaped}\"";
@@ -180,6 +192,8 @@ class SettingsController extends Controller
 
     public function testAI(Request $request)
     {
+        $this->authorizeAdmin();
+
         $request->validate([
             'tenant_id'      => 'nullable|integer|exists:tenants,id',
             'ai_api_key'     => 'nullable|string',
@@ -188,13 +202,13 @@ class SettingsController extends Controller
             'ai_chat_model'  => 'nullable|string|max:100',
         ]);
 
-        $user   = Auth::user();
+        $user = Auth::user();
         $tenant = $user->isSuperAdmin() && $request->filled('tenant_id')
-            ? Tenant::find($request->tenant_id)
+            ? Tenant::findOrFail($request->tenant_id)
             : $user->tenant;
 
         $formOverrides = array_filter(
-            $request->only(['ai_api_key', 'ai_base_url', 'ai_embed_model', 'ai_chat_model']),
+            $request->only(Tenant::AI_FIELDS),
             fn ($value) => $value !== null && $value !== ''
         );
 
@@ -203,5 +217,10 @@ class SettingsController extends Controller
         $service = app(SumopodService::class)->withTenantSettings($mergedSettings);
 
         return response()->json($service->testConnection());
+    }
+
+    private function authorizeAdmin(): void
+    {
+        abort_unless(Auth::user()?->isAdmin(), 403, 'Hanya admin yang dapat mengubah pengaturan AI.');
     }
 }

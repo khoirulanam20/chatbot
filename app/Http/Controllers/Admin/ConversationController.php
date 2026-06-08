@@ -60,6 +60,8 @@ class ConversationController extends Controller
 
     public function show(Conversation $conversation)
     {
+        $this->authorize('view', $conversation);
+
         $conversation->load(['contact', 'chatbot', 'assignedAgent', 'handoff.agent']);
         $messages = $conversation->messages()->orderBy('created_at')->get();
         $agents   = User::where('tenant_id', $conversation->chatbot->tenant_id)
@@ -79,6 +81,8 @@ class ConversationController extends Controller
 
     public function sendMessage(Request $request, Conversation $conversation)
     {
+        $this->authorize('respond', $conversation);
+
         $request->validate(['message' => 'required|string|max:2000']);
 
         $agent = Auth::user();
@@ -115,6 +119,8 @@ class ConversationController extends Controller
 
     public function sendImage(Request $request, Conversation $conversation)
     {
+        $this->authorize('respond', $conversation);
+
         $request->validate([
             'image'   => 'required|image|mimes:jpeg,png,gif,webp|max:10240',
             'caption' => 'nullable|string|max:500',
@@ -162,6 +168,8 @@ class ConversationController extends Controller
 
     public function updateStatus(Request $request, Conversation $conversation)
     {
+        $this->authorize('update', $conversation);
+
         $request->validate(['status' => 'required|in:open,resolved,spam,handoff']);
         $conversation->update(['status' => $request->status]);
 
@@ -170,6 +178,8 @@ class ConversationController extends Controller
 
     public function takeOver(Conversation $conversation)
     {
+        $this->authorize('update', $conversation);
+
         $agent = Auth::user();
         if (! $agent instanceof User || ! $agent->isOperator()) {
             return back()->withErrors(['message' => 'Anda tidak memiliki akses untuk mengambil alih percakapan.']);
@@ -198,6 +208,8 @@ class ConversationController extends Controller
 
     public function assign(Request $request, Conversation $conversation)
     {
+        $this->authorize('update', $conversation);
+
         $request->validate(['agent_id' => 'nullable|exists:users,id']);
 
         $agent = $request->agent_id ? User::find($request->agent_id) : null;
@@ -223,6 +235,8 @@ class ConversationController extends Controller
 
     public function resumeAI(Conversation $conversation)
     {
+        $this->authorize('update', $conversation);
+
         $this->agentSession->endSession($conversation, resumeAi: true);
 
         return back()->with('success', 'AI kembali aktif untuk percakapan ini.');

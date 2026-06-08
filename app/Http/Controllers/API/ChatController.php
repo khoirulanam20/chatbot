@@ -10,6 +10,7 @@ use App\Services\ChatImageService;
 use App\Services\RAGService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -65,7 +66,13 @@ class ChatController extends Controller
 
     public function getHistory(Request $request, string $sessionId): JsonResponse
     {
-        $conversation = Conversation::where('session_id', $sessionId)->first();
+        $request->validate([
+            'bot_id' => 'required|exists:chatbots,id',
+        ]);
+
+        $conversation = Conversation::where('session_id', $sessionId)
+            ->where('chatbot_id', $request->bot_id)
+            ->first();
 
         if (! $conversation) {
             return response()->json(['messages' => []]);
@@ -123,7 +130,9 @@ class ChatController extends Controller
                 $conversation->id
             );
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
+            Log::error('Chat image upload failed', ['error' => $e->getMessage()]);
+
+            return response()->json(['error' => 'Gagal mengunggah gambar. Silakan coba lagi.'], 422);
         }
 
         $caption = $request->caption ?: '[Gambar]';
@@ -158,9 +167,20 @@ class ChatController extends Controller
     {
         $request->validate([
             'message_id' => 'required|exists:messages,id',
+            'bot_id'     => 'required|exists:chatbots,id',
+            'session_id' => 'required|string|max:100',
             'rating'     => 'required|integer|in:1,-1',
             'feedback'   => 'nullable|string|max:500',
         ]);
+
+        $message = \App\Models\Message::with('conversation')->findOrFail($request->message_id);
+
+        if (
+            $message->conversation?->session_id !== $request->session_id
+            || $message->conversation?->chatbot_id !== (int) $request->bot_id
+        ) {
+            return response()->json(['error' => 'Pesan tidak valid'], 403);
+        }
 
         \App\Models\MessageRating::updateOrCreate(
             ['message_id' => $request->message_id],
@@ -197,17 +217,25 @@ class ChatController extends Controller
             ]
         );
 
-        $conversation = Conversation::firstOrCreate(
-            ['session_id' => $sessionId],
-            [
-                'chatbot_id'      => $chatbot->id,
-                'contact_id'      => $contact->id,
-                'channel'         => 'web',
-                'status'          => 'open',
-                'is_ai_active'    => true,
-                'last_message_at' => now(),
-            ]
-        );
+        $existing = Conversation::where('session_id', $sessionId)->first();
+
+        if ($existing) {
+            if ($existing->chatbot_id !== $chatbot->id) {
+                abort(403, 'Session tidak valid untuk chatbot ini.');
+            }
+
+            return [$sessionId, $existing];
+        }
+
+        $conversation = Conversation::create([
+            'session_id'      => $sessionId,
+            'chatbot_id'      => $chatbot->id,
+            'contact_id'      => $contact->id,
+            'channel'         => 'web',
+            'status'          => 'open',
+            'is_ai_active'    => true,
+            'last_message_at' => now(),
+        ]);
 
         return [$sessionId, $conversation];
     }

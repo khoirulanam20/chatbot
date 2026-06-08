@@ -31,6 +31,8 @@ class ChatbotConfigController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Chatbot::class);
+
         $request->validate([
             'tenant_id'       => 'required|exists:tenants,id',
             'name'            => 'required|string|max:100',
@@ -42,6 +44,11 @@ class ChatbotConfigController extends Controller
             'handoff_triggers' => 'nullable|string',
             'avatar'          => 'nullable|image|max:2048',
         ]);
+
+        $user = Auth::user();
+        if (! $user->isSuperAdmin() && (int) $request->tenant_id !== (int) $user->tenant_id) {
+            abort(403, 'Anda tidak dapat membuat chatbot untuk tenant lain.');
+        }
 
         $avatarPath = null;
         if ($request->hasFile('avatar')) {
@@ -82,6 +89,8 @@ class ChatbotConfigController extends Controller
 
     public function edit(Chatbot $chatbot)
     {
+        $this->authorize('update', $chatbot);
+
         $chatbot->load('embedConfig');
         $tenants = Auth::user()->isSuperAdmin() ? Tenant::all() : collect([Auth::user()->tenant]);
         return inertia('chatbot/Edit', ['chatbot' => $chatbot, 'tenants' => $tenants]);
@@ -89,6 +98,8 @@ class ChatbotConfigController extends Controller
 
     public function update(Request $request, Chatbot $chatbot)
     {
+        $this->authorize('update', $chatbot);
+
         $request->validate([
             'name'             => 'required|string|max:100',
             'temperature'      => 'required|numeric|min:0|max:1',
@@ -151,6 +162,8 @@ class ChatbotConfigController extends Controller
 
     public function destroy(Chatbot $chatbot)
     {
+        $this->authorize('delete', $chatbot);
+
         if ($chatbot->avatar) {
             Storage::disk('public')->delete($chatbot->avatar);
         }
@@ -161,11 +174,15 @@ class ChatbotConfigController extends Controller
 
     public function embedCode(Chatbot $chatbot)
     {
+        $this->authorize('view', $chatbot);
+
         return inertia('chatbot/EmbedCode', ['chatbot' => $chatbot]);
     }
 
     public function persona(Chatbot $chatbot)
     {
+        $this->authorize('view', $chatbot);
+
         $persona = array_merge([
             'role' => '',
             'tone' => 'ramah',
@@ -217,6 +234,8 @@ class ChatbotConfigController extends Controller
 
     public function generatePersona(Request $request, Chatbot $chatbot)
     {
+        $this->authorize('update', $chatbot);
+
         $request->validate([
             'description' => 'required|string|max:500',
         ]);
@@ -240,6 +259,8 @@ class ChatbotConfigController extends Controller
 
     public function updatePersona(Request $request, Chatbot $chatbot)
     {
+        $this->authorize('update', $chatbot);
+
         $request->validate([
             'role' => 'nullable|string|max:200',
             'tone' => 'nullable|string|in:ramah,formal,profesional,santai',

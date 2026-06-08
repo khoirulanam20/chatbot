@@ -27,9 +27,7 @@ class RAGService
         $channel = $conversation->channel ?? 'web';
         $caption = trim((string) $caption) ?: '[Gambar]';
 
-        $sumopod = $this->sumopod->withTenantSettings(
-            $chatbot->tenant?->getAiConfig() ?? []
-        );
+        $sumopod = $this->resolveSumopodForChatbot($chatbot);
 
         $metadata = [
             'type' => 'image',
@@ -131,19 +129,8 @@ class RAGService
                 'user_message_id' => $userMsg->id,
                 'metadata'        => $metadata,
             ]);
-        } catch (\Exception $e) {
-            Log::error('RAG vision pipeline error', [
-                'conversation_id' => $conversation->id,
-                'error'           => $e->getMessage(),
-            ]);
-
-            $fallback = $chatbot->getFallbackMessage();
-            $this->saveMessage($conversation, 'assistant', $fallback);
-
-            return $this->wrapResponse($fallback, $chatbot, $channel, [
-                'sources'         => [],
-                'user_message_id' => $userMsg->id,
-            ]);
+        } catch (\Throwable $e) {
+            return $this->handlePipelineError($conversation, $chatbot, $channel, $e, $userMsg->id, 'RAG vision pipeline error');
         }
     }
 
@@ -153,10 +140,7 @@ class RAGService
     ): array {
         $chatbot = $conversation->chatbot;
 
-        // Gunakan konfigurasi AI milik tenant, fallback ke global config
-        $sumopod = $this->sumopod->withTenantSettings(
-            $chatbot->tenant?->getAiConfig() ?? []
-        );
+        $sumopod = $this->resolveSumopodForChatbot($chatbot);
 
         $userMsg = $this->saveMessage($conversation, 'user', $userMessage);
 
@@ -190,12 +174,10 @@ class RAGService
             $messages       = $this->buildMessages($chatbot, $history, $context, $userMessage, $channel);
             $humanizeActive = $chatbot->isHumanizeEnabledFor($channel);
 
-            if ($humanizeActive) {
-                $temperature = min(0.9, ($chatbot->temperature ?? 0.7) + 0.1);
-                $result = $sumopod->chatOnce($messages, $chatbot, temperature: $temperature);
-            } else {
-                $result = $sumopod->chat($messages, $chatbot);
-            }
+            $temperature = $humanizeActive
+                ? min(0.9, ($chatbot->temperature ?? 0.7) + 0.1)
+                : ($chatbot->temperature ?? 0.7);
+            $result = $sumopod->chatOnce($messages, $chatbot, temperature: $temperature);
 
             $processed = $this->humanizedResponse->process(
                 $result['content'],
@@ -224,18 +206,15 @@ class RAGService
                 'message_id'      => $message->id,
                 'user_message_id' => $userMsg->id,
             ]);
-        } catch (\Exception $e) {
-            Log::error('RAG pipeline error', [
-                'conversation_id' => $conversation->id,
-                'error'           => $e->getMessage(),
-            ]);
-
-            $fallback = $chatbot->getFallbackMessage();
-            $this->saveMessage($conversation, 'assistant', $fallback);
-
-            return $this->wrapResponse($fallback, $chatbot, $conversation->channel ?? 'web', [
-                'sources' => [],
-            ]);
+        } catch (\Throwable $e) {
+            return $this->handlePipelineError(
+                $conversation,
+                $chatbot,
+                $conversation->channel ?? 'web',
+                $e,
+                $userMsg->id,
+                'RAG pipeline error'
+            );
         }
     }
 
@@ -495,6 +474,48 @@ class RAGService
             'tokens'          => $tokens,
             'sources'         => $sources ?: null,
             'metadata'        => $metadata,
+        ]);
+    }
+
+    private function resolveSumopodForChatbot(Chatbot $chatbot): SumopodService
+    {
+        return $this->sumopod->withTenantSettings(
+            $chatbot->tenant?->getAiConfig() ?? []
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function handlePipelineError(
+        Conversation $conversation,
+        Chatbot $chatbot,
+        string $channel,
+        \Throwable $e,
+        ?int $userMessageId,
+        string $logContext
+    ): array {
+        Log::error($logContext, [
+            'conversation_id' => $conversation->id,
+            'error'           => $e->getMessage(),
+        ]);
+
+        if (SumopodService::isConfigurationError($e)) {
+            $reply = 'Konfigurasi AI belum lengkap. Hubungi admin untuk memeriksa Pengaturan AI.';
+            $this->saveMessage($conversation, 'assistant', $reply);
+
+            return $this->wrapResponse($reply, $chatbot, $channel, [
+                'sources'         => [],
+                'user_message_id' => $userMessageId,
+            ]);
+        }
+
+        $fallback = $chatbot->getFallbackMessage();
+        $this->saveMessage($conversation, 'assistant', $fallback);
+
+        return $this->wrapResponse($fallback, $chatbot, $channel, [
+            'sources'         => [],
+            'user_message_id' => $userMessageId,
         ]);
     }
 }

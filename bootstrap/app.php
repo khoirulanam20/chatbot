@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'verify.chatery' => \App\Http\Middleware\VerifyWaChaterySignature::class,
             'super_admin'    => \App\Http\Middleware\SuperAdminOnly::class,
+            'role'           => \App\Http\Middleware\EnsureRole::class,
         ]);
     })
     ->withSchedule(function (Schedule $schedule) {

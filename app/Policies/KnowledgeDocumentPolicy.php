@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Chatbot;
 use App\Models\KnowledgeDocument;
 use App\Models\User;
 
@@ -14,7 +15,10 @@ class KnowledgeDocumentPolicy
 
     public function view(User $user, KnowledgeDocument $document): bool
     {
-        return $user->isSuperAdmin() || $user->tenant_id === $document->chatbot->tenant_id;
+        $tenantId = $this->resolveTenantId($document);
+
+        return $tenantId !== null
+            && ($user->isSuperAdmin() || $user->tenant_id === $tenantId);
     }
 
     public function create(User $user): bool
@@ -22,8 +26,24 @@ class KnowledgeDocumentPolicy
         return $user->isAdmin();
     }
 
+    public function update(User $user, KnowledgeDocument $document): bool
+    {
+        $tenantId = $this->resolveTenantId($document);
+
+        return $tenantId !== null
+            && $user->isAdmin()
+            && ($user->isSuperAdmin() || $user->tenant_id === $tenantId);
+    }
+
     public function delete(User $user, KnowledgeDocument $document): bool
     {
-        return $user->isAdmin() && ($user->isSuperAdmin() || $user->tenant_id === $document->chatbot->tenant_id);
+        return $this->update($user, $document);
+    }
+
+    private function resolveTenantId(KnowledgeDocument $document): ?int
+    {
+        return Chatbot::withoutGlobalScopes()
+            ->whereKey($document->chatbot_id)
+            ->value('tenant_id');
     }
 }

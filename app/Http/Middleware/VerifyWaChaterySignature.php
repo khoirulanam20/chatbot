@@ -16,6 +16,12 @@ class VerifyWaChaterySignature
         // Secret kosong = skip verifikasi (kompatibel dengan setup lama / Chatery tanpa signature).
         // Set CHATERY_WEBHOOK_SECRET untuk mengaktifkan verifikasi HMAC.
         if (empty($secret)) {
+            if (app()->environment('production')) {
+                Log::error('WA webhook rejected: CHATERY_WEBHOOK_SECRET not configured in production');
+
+                return response()->json(['error' => 'Webhook secret not configured'], 500);
+            }
+
             Log::warning('WA webhook: signature verification disabled (CHATERY_WEBHOOK_SECRET empty)');
 
             return $next($request);

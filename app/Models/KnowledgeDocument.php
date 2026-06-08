@@ -10,11 +10,12 @@ class KnowledgeDocument extends Model
 {
     protected $fillable = [
         'chatbot_id', 'name', 'original_name', 'type', 'path',
-        'status', 'chunk_count', 'error_message', 'tags', 'description',
+        'status', 'chunk_count', 'error_message', 'tags', 'description', 'metadata',
     ];
 
     protected $casts = [
-        'tags' => 'array',
+        'tags'     => 'array',
+        'metadata' => 'array',
     ];
 
     public function chatbot(): BelongsTo

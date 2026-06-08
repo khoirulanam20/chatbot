@@ -3,12 +3,19 @@
 namespace App\Services;
 
 use App\Models\Chatbot;
+use App\Models\Tenant;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SumopodService
 {
+    private const TIMEOUT_EMBED = 30;
+    private const TIMEOUT_CHAT  = 60;
+    private const CACHE_MINUTES = 30;
+    private const DEFAULT_MAX_TOKENS = 1500;
+
     private string $apiKey;
     private string $baseUrl;
     private string $embedModel;
@@ -30,21 +37,20 @@ class SumopodService
     {
         $clone = clone $this;
 
-        if (! empty($settings['ai_api_key'])) {
-            $clone->apiKey = $settings['ai_api_key'];
+        if (! empty($settings[Tenant::AI_API_KEY])) {
+            $clone->apiKey = $settings[Tenant::AI_API_KEY];
             Log::debug('SumopodService: using tenant API key', [
-                'key_prefix' => substr($clone->apiKey, 0, 6),
-                'key_length' => strlen($clone->apiKey),
+                'key_configured' => true,
             ]);
         }
-        if (! empty($settings['ai_base_url'])) {
-            $clone->baseUrl = rtrim($settings['ai_base_url'], '/');
+        if (! empty($settings[Tenant::AI_BASE_URL])) {
+            $clone->baseUrl = rtrim($settings[Tenant::AI_BASE_URL], '/');
         }
-        if (! empty($settings['ai_embed_model'])) {
-            $clone->embedModel = $settings['ai_embed_model'];
+        if (! empty($settings[Tenant::AI_EMBED_MODEL])) {
+            $clone->embedModel = $settings[Tenant::AI_EMBED_MODEL];
         }
-        if (! empty($settings['ai_chat_model'])) {
-            $clone->chatModel = $settings['ai_chat_model'];
+        if (! empty($settings[Tenant::AI_CHAT_MODEL])) {
+            $clone->chatModel = $settings[Tenant::AI_CHAT_MODEL];
         }
 
         return $clone;
@@ -78,52 +84,40 @@ class SumopodService
 
     public function embed(string $text): array
     {
-        $response = Http::withToken($this->apiKey)
-            ->baseUrl($this->baseUrl)
-            ->timeout(30)
-            ->post('/embeddings', [
-                'model' => $this->embedModel,
-                'input' => $text,
-            ]);
+        $this->ensureApiKeyConfigured();
 
-        if ($response->failed()) {
-            Log::error('Sumopod embedding failed', [
-                'status'     => $response->status(),
-                'body'       => $response->body(),
-                'base_url'   => $this->baseUrl,
-                'key_prefix' => substr($this->apiKey, 0, 6),
-                'key_length' => strlen($this->apiKey),
-            ]);
-            throw new \RuntimeException(
-                'Embedding API gagal (HTTP ' . $response->status() . '): ' . self::extractApiErrorMessage($response)
-            );
+        $response = $this->post('/embeddings', [
+            'model' => $this->embedModel,
+            'input' => $text,
+        ], self::TIMEOUT_EMBED, 'Embedding API');
+
+        $embedding = $response->json('data.0.embedding');
+
+        if (! is_array($embedding) || $embedding === []) {
+            throw new \RuntimeException('Embedding API mengembalikan respons kosong.');
         }
 
-        return $response->json('data.0.embedding', []);
+        return $embedding;
     }
 
     public function embedBatch(array $texts): array
     {
-        $response = Http::withToken($this->apiKey)
-            ->baseUrl($this->baseUrl)
-            ->timeout(60)
-            ->post('/embeddings', [
-                'model' => $this->embedModel,
-                'input' => $texts,
-            ]);
+        $this->ensureApiKeyConfigured();
 
-        if ($response->failed()) {
-            Log::error('Sumopod batch embedding failed', [
-                'status'     => $response->status(),
-                'base_url'   => $this->baseUrl,
-                'key_prefix' => substr($this->apiKey, 0, 6),
-                'key_length' => strlen($this->apiKey),
-            ]);
-            throw new \RuntimeException('Batch embedding API request failed');
-        }
+        $response = $this->post('/embeddings', [
+            'model' => $this->embedModel,
+            'input' => $texts,
+        ], self::TIMEOUT_EMBED, 'Batch embedding API');
 
         $data = $response->json('data', []);
         usort($data, fn ($a, $b) => $a['index'] - $b['index']);
+
+        if (count($data) !== count($texts)) {
+            throw new \RuntimeException(
+                'Batch embedding API mengembalikan jumlah hasil tidak sesuai: '
+                . count($data) . ' dari ' . count($texts)
+            );
+        }
 
         return array_map(fn ($item) => $item['embedding'], $data);
     }
@@ -136,33 +130,13 @@ class SumopodService
         $model       = $this->resolveModel($chatbot, $overrideModel);
         $temperature = $chatbot?->temperature ?? 0.7;
 
-        $cacheKey = 'ai_resp_' . md5(json_encode($messages) . $model);
+        $cacheKey = $this->buildChatCacheKey($messages, $model, $temperature);
         if ($cached = Cache::get($cacheKey)) {
             return $cached;
         }
 
-        $response = Http::withToken($this->apiKey)
-            ->baseUrl($this->baseUrl)
-            ->timeout(60)
-            ->post('/chat/completions', [
-                'model'       => $model,
-                'messages'    => $messages,
-                'temperature' => $temperature,
-                'max_tokens'  => 1500,
-            ]);
-
-        if ($response->failed()) {
-            Log::error('Sumopod chat completion failed', ['status' => $response->status(), 'body' => $response->body()]);
-            throw new \RuntimeException('Chat completion API request failed: ' . $response->status());
-        }
-
-        $result = [
-            'content' => $response->json('choices.0.message.content', ''),
-            'tokens'  => $response->json('usage.total_tokens', 0),
-            'model'   => $response->json('model', $model),
-        ];
-
-        Cache::put($cacheKey, $result, now()->addMinutes(30));
+        $result = $this->performChat($messages, $model, $temperature, self::DEFAULT_MAX_TOKENS);
+        Cache::put($cacheKey, $result, now()->addMinutes(self::CACHE_MINUTES));
 
         return $result;
     }
@@ -172,32 +146,11 @@ class SumopodService
         ?Chatbot $chatbot = null,
         ?string $overrideModel = null,
         float $temperature = 0.7,
-        int $maxTokens = 1500
+        int $maxTokens = self::DEFAULT_MAX_TOKENS
     ): array {
         $model = $this->resolveModel($chatbot, $overrideModel);
 
-        $response = Http::withToken($this->apiKey)
-            ->baseUrl($this->baseUrl)
-            ->timeout(60)
-            ->post('/chat/completions', [
-                'model'       => $model,
-                'messages'    => $messages,
-                'temperature' => $temperature,
-                'max_tokens'  => $maxTokens,
-            ]);
-
-        if ($response->failed()) {
-            Log::error('Sumopod chat completion failed', ['status' => $response->status(), 'body' => $response->body()]);
-            throw new \RuntimeException(
-                'Chat API gagal (HTTP ' . $response->status() . '): ' . self::extractApiErrorMessage($response)
-            );
-        }
-
-        return [
-            'content' => $response->json('choices.0.message.content', ''),
-            'tokens'  => $response->json('usage.total_tokens', 0),
-            'model'   => $response->json('model', $model),
-        ];
+        return $this->performChat($messages, $model, $temperature, $maxTokens);
     }
 
     public function formatEmbeddingForStorage(array $embedding): string
@@ -205,9 +158,6 @@ class SumopodService
         return json_encode($embedding);
     }
 
-    /**
-     * Validasi nama model embedding — deteksi nilai terduplikasi dari korupsi .env lama.
-     */
     public static function validateEmbedModelName(string $model): ?string
     {
         if ($model === '') {
@@ -327,7 +277,84 @@ class SumopodService
         ];
     }
 
-    private static function extractApiErrorMessage(\Illuminate\Http\Client\Response $response): string
+    public static function isConfigurationError(\Throwable $e): bool
+    {
+        if (! $e instanceof \RuntimeException) {
+            return false;
+        }
+
+        $message = $e->getMessage();
+
+        return str_contains($message, 'belum dikonfigurasi')
+            || str_contains($message, 'terduplikasi')
+            || str_contains($message, 'API key belum');
+    }
+
+    private function ensureApiKeyConfigured(): void
+    {
+        if ($this->apiKey === '') {
+            throw new \RuntimeException(
+                'API key belum dikonfigurasi. Isi API key tenant atau minta superadmin mengatur global.'
+            );
+        }
+    }
+
+    private function post(string $endpoint, array $payload, int $timeout, string $label): Response
+    {
+        $response = Http::withToken($this->apiKey)
+            ->baseUrl($this->baseUrl)
+            ->timeout($timeout)
+            ->post($endpoint, $payload);
+
+        if ($response->failed()) {
+            Log::error("Sumopod {$label} failed", [
+                'status'   => $response->status(),
+                'body'     => $response->body(),
+                'base_url' => $this->baseUrl,
+            ]);
+            throw new \RuntimeException(
+                "{$label} gagal (HTTP {$response->status()}): " . self::extractApiErrorMessage($response)
+            );
+        }
+
+        return $response;
+    }
+
+    /**
+     * @return array{content: string, tokens: int, model: string}
+     */
+    private function performChat(array $messages, string $model, float $temperature, int $maxTokens): array
+    {
+        $this->ensureApiKeyConfigured();
+
+        $response = $this->post('/chat/completions', [
+            'model'       => $model,
+            'messages'    => $messages,
+            'temperature' => $temperature,
+            'max_tokens'  => $maxTokens,
+        ], self::TIMEOUT_CHAT, 'Chat API');
+
+        $content = $response->json('choices.0.message.content');
+
+        if (! is_string($content) || $content === '') {
+            throw new \RuntimeException('Chat API mengembalikan respons kosong.');
+        }
+
+        return [
+            'content' => $content,
+            'tokens'  => (int) $response->json('usage.total_tokens', 0),
+            'model'   => (string) $response->json('model', $model),
+        ];
+    }
+
+    private function buildChatCacheKey(array $messages, string $model, float $temperature): string
+    {
+        $credentialHash = md5($this->apiKey . '|' . $this->baseUrl);
+
+        return 'ai_resp_' . md5(json_encode($messages) . $model . $temperature . $credentialHash);
+    }
+
+    private static function extractApiErrorMessage(Response $response): string
     {
         $message = $response->json('error.message')
             ?? $response->json('message')

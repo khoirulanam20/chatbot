@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\UrlSafety;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -22,6 +23,8 @@ class DocumentProcessorService
 
     public function extractFromUrl(string $url): string
     {
+        UrlSafety::assertPublicHttpUrl($url);
+
         try {
             $response = Http::withHeaders([
                 'User-Agent'      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -224,6 +227,8 @@ class DocumentProcessorService
 
     public function scrapeMultiplePages(string $startUrl, int $maxPages = 10): array
     {
+        UrlSafety::assertPublicHttpUrl($startUrl);
+
         $baseParsed = parse_url($startUrl);
         $baseOrigin = ($baseParsed['scheme'] ?? 'https') . '://' . ($baseParsed['host'] ?? '');
 

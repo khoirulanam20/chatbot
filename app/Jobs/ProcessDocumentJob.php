@@ -7,24 +7,31 @@ use App\Models\KnowledgeDocument;
 use App\Services\DocumentProcessorService;
 use App\Services\SumopodService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
-class ProcessDocumentJob implements ShouldQueue
+class ProcessDocumentJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 1800; // 30 menit untuk crawl website besar
+    public int $timeout = 1800;
     public int $tries   = 2;
 
     public function __construct(
         public readonly int $documentId
     ) {
         $this->onQueue('documents');
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->documentId;
     }
 
     public function handle(
@@ -35,10 +42,10 @@ class ProcessDocumentJob implements ShouldQueue
 
         if (! $document) {
             Log::warning("Document {$this->documentId} not found");
+
             return;
         }
 
-        // Gunakan konfigurasi AI milik tenant dokumen
         $sumopod = $sumopodBase->withTenantSettings(
             $document->chatbot?->tenant?->getAiConfig() ?? []
         );
@@ -47,8 +54,11 @@ class ProcessDocumentJob implements ShouldQueue
 
         try {
             if ($document->type === 'url') {
-                $pagesMap = $processor->scrapeMultiplePages($document->path, maxPages: (int) ($document->metadata['max_pages'] ?? 1));
-                $text     = implode("\n\n---\n\n", array_map(
+                $pagesMap = $processor->scrapeMultiplePages(
+                    $document->path,
+                    maxPages: (int) ($document->metadata['max_pages'] ?? 1)
+                );
+                $text = implode("\n\n---\n\n", array_map(
                     fn ($url, $content) => "Sumber: {$url}\n\n{$content}",
                     array_keys($pagesMap),
                     array_values($pagesMap)
@@ -63,33 +73,41 @@ class ProcessDocumentJob implements ShouldQueue
 
             $chunks = $processor->chunkText($text, chunkSize: 500, overlap: 50);
 
-            $document->chunks()->delete();
-
-            $batchSize  = 20;
-            $chunkCount = 0;
-
-            foreach (array_chunk($chunks, $batchSize) as $batch) {
-                $embeddings = $sumopod->embedBatch($batch);
-
-                foreach ($batch as $index => $chunkText) {
-                    KnowledgeChunk::create([
-                        'document_id' => $document->id,
-                        'content'     => $chunkText,
-                        'embedding'   => $sumopod->formatEmbeddingForStorage($embeddings[$index]),
-                        'chunk_index' => $chunkCount,
-                    ]);
-                    $chunkCount++;
-                }
+            if ($chunks === []) {
+                throw new \RuntimeException('Dokumen tidak menghasilkan konten yang cukup untuk diindeks.');
             }
 
-            $document->update([
-                'status'      => 'indexed',
-                'chunk_count' => $chunkCount,
-            ]);
+            $chunkCount = 0;
+
+            DB::transaction(function () use ($document, $sumopod, $chunks, &$chunkCount) {
+                $document->chunks()->delete();
+
+                $batchSize = 20;
+
+                foreach (array_chunk($chunks, $batchSize) as $batch) {
+                    $embeddings = $sumopod->embedBatch($batch);
+
+                    foreach ($batch as $index => $chunkText) {
+                        KnowledgeChunk::create([
+                            'document_id' => $document->id,
+                            'content'     => $chunkText,
+                            'embedding'   => $sumopod->formatEmbeddingForStorage($embeddings[$index]),
+                            'chunk_index' => $chunkCount,
+                        ]);
+                        $chunkCount++;
+                    }
+                }
+
+                $document->update([
+                    'status'      => 'indexed',
+                    'chunk_count' => $chunkCount,
+                    'error_message' => null,
+                ]);
+            });
 
             Log::info("Document {$document->id} indexed with {$chunkCount} chunks");
-        } catch (\Exception $e) {
-            Log::error("Document processing failed", [
+        } catch (\Throwable $e) {
+            Log::error('Document processing failed', [
                 'document_id' => $document->id,
                 'error'       => $e->getMessage(),
             ]);
@@ -98,6 +116,8 @@ class ProcessDocumentJob implements ShouldQueue
                 'status'        => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
+
+            throw $e;
         }
     }
 
