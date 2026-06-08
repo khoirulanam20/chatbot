@@ -22,23 +22,13 @@ class VerifyWaChaterySignature
         ]);
         // #endregion
 
-        // Secret kosong = skip verifikasi (kompatibel dengan setup lama / Chatery tanpa signature).
-        // Set CHATERY_WEBHOOK_SECRET untuk mengaktifkan verifikasi HMAC.
+        // Secret kosong = skip verifikasi (Chatery belum kirim X-Chatery-Signature).
+        // Set CHATERY_WEBHOOK_SECRET + header signature di Chatery untuk mengaktifkan HMAC.
         if (empty($secret)) {
-            if (app()->environment('production')) {
-                Log::error('WA webhook rejected: CHATERY_WEBHOOK_SECRET not configured in production');
-
-                // #region agent log
-                DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'rejected_no_secret_production');
-                // #endregion
-
-                return response()->json(['error' => 'Webhook secret not configured'], 500);
-            }
-
             Log::warning('WA webhook: signature verification disabled (CHATERY_WEBHOOK_SECRET empty)');
 
             // #region agent log
-            DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'allowed_no_secret_non_production');
+            DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'allowed_no_secret', [], 'post-fix');
             // #endregion
 
             return $next($request);
