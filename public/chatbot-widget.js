@@ -161,13 +161,6 @@
     }
     #cb-image-preview-cancel:hover { border-color: #ef4444; color: #ef4444; }
     #cb-image-preview-cancel svg { width: 16px; height: 16px; }
-    #cb-image-preview-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
-    #cb-image-send-btn {
-      background: var(--cb-primary, #4F46E5); color: #fff; border: none;
-      border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600;
-      cursor: pointer; white-space: nowrap;
-    }
-    #cb-image-send-btn:hover { opacity: 0.92; }
     #cb-footer { text-align: center; padding: 6px; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
     .cb-msg b, .cb-msg strong { font-weight: 700; }
     .cb-msg em, .cb-msg i { font-style: italic; }
@@ -204,15 +197,13 @@
           <img id="cb-image-preview-img" src="" alt="Pratinjau gambar" />
           <div id="cb-image-preview-info">
             <div id="cb-image-preview-label">Gambar siap dikirim</div>
-            <div id="cb-image-preview-hint">Tulis deskripsi (opsional), lalu klik Kirim gambar</div>
+            <div id="cb-image-preview-hint">Tulis deskripsi di bawah, lalu tekan kirim</div>
           </div>
-          <div id="cb-image-preview-actions">
-            <button id="cb-image-send-btn" type="button">Kirim gambar</button>
-            <button id="cb-image-preview-cancel" type="button" aria-label="Batalkan gambar">${ICONS.close}</button>
-          </div>
+          <button id="cb-image-preview-cancel" type="button" aria-label="Batalkan gambar">${ICONS.close}</button>
         </div>
         <div id="cb-input-area">
           <input type="file" id="cb-file-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden />
+          <button id="cb-attach-btn" aria-label="Kirim gambar" type="button">${ICONS.attach}</button>
           <textarea id="cb-input" placeholder="Ketik pesan..." rows="1"></textarea>
           <button id="cb-send-btn" aria-label="Kirim" type="button">${ICONS.send}</button>
         </div>
@@ -243,10 +234,6 @@
       e.preventDefault();
       blockSendGuard();
       document.getElementById('cb-file-input').click();
-    });
-    document.getElementById('cb-image-send-btn').addEventListener('click', function (e) {
-      e.preventDefault();
-      sendPendingImage();
     });
     document.getElementById('cb-file-input').addEventListener('change', function (e) {
       var file = e.target.files && e.target.files[0];
