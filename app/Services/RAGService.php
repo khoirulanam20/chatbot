@@ -87,8 +87,14 @@ class RAGService
 
             if ($caption !== '[Gambar]') {
                 $queryEmbedding = $sumopod->embed($caption);
-                $chunks         = $this->semanticSearch($chatbot, $queryEmbedding);
-                $context        = $this->buildContext($chunks);
+                $search         = $this->semanticSearch($chatbot, $queryEmbedding);
+                $chunks         = $search['chunks'];
+
+                if ($this->shouldRejectAsOutOfContext($chatbot, $caption, $search['best_score'])) {
+                    return $this->respondOutOfContext($conversation, $chatbot, $userMsg->id, $channel);
+                }
+
+                $context = $this->buildContext($chunks);
             }
 
             $history  = $this->getConversationHistory($conversation, $chatbot->max_context, excludeId: $userMsg->id);
@@ -167,9 +173,15 @@ class RAGService
 
         try {
             $queryEmbedding = $sumopod->embed($userMessage);
-            $chunks         = $this->semanticSearch($chatbot, $queryEmbedding);
-            $context        = $this->buildContext($chunks);
+            $search         = $this->semanticSearch($chatbot, $queryEmbedding);
+            $chunks         = $search['chunks'];
             $channel        = $conversation->channel ?? 'web';
+
+            if ($this->shouldRejectAsOutOfContext($chatbot, $userMessage, $search['best_score'])) {
+                return $this->respondOutOfContext($conversation, $chatbot, $userMsg->id, $channel);
+            }
+
+            $context = $this->buildContext($chunks);
             $history        = $this->getConversationHistory($conversation, $chatbot->max_context);
             $messages       = $this->buildMessages($chatbot, $history, $context, $userMessage, $channel);
             $humanizeActive = $chatbot->isHumanizeEnabledFor($channel);
@@ -234,6 +246,9 @@ class RAGService
         ]);
     }
 
+    /**
+     * @return array{chunks: array<int, KnowledgeChunk>, best_score: float}
+     */
     private function semanticSearch(Chatbot $chatbot, array $queryEmbedding, int $limit = 5): array
     {
         $documentIds = KnowledgeDocument::where('chatbot_id', $chatbot->id)
@@ -242,7 +257,7 @@ class RAGService
             ->toArray();
 
         if (empty($documentIds)) {
-            return [];
+            return ['chunks' => [], 'best_score' => 0.0];
         }
 
         $chunks = KnowledgeChunk::with('document')
@@ -251,21 +266,66 @@ class RAGService
             ->get();
 
         if ($chunks->isEmpty()) {
-            return [];
+            return ['chunks' => [], 'best_score' => 0.0];
         }
 
         $scored = $chunks->map(function ($chunk) use ($queryEmbedding) {
             $chunkEmbedding = json_decode($chunk->embedding, true);
             $similarity     = $this->cosineSimilarity($queryEmbedding, $chunkEmbedding ?? []);
-            return ['chunk' => $chunk, 'score' => $similarity];
-        });
 
-        return $scored
-            ->sortByDesc('score')
+            return ['chunk' => $chunk, 'score' => $similarity];
+        })->sortByDesc('score');
+
+        $bestScore = (float) ($scored->first()['score'] ?? 0.0);
+        $threshold = $chatbot->getRagMinSimilarity();
+
+        $relevant = $scored
+            ->filter(fn ($item) => $item['score'] >= $threshold)
             ->take($limit)
             ->pluck('chunk')
             ->values()
             ->all();
+
+        return ['chunks' => $relevant, 'best_score' => $bestScore];
+    }
+
+    private function shouldRejectAsOutOfContext(Chatbot $chatbot, string $userMessage, float $bestScore): bool
+    {
+        if (! $chatbot->hasIndexedKnowledge()) {
+            return false;
+        }
+
+        if ($this->isConversationalMessage($userMessage)) {
+            return false;
+        }
+
+        return $bestScore < $chatbot->getRagMinSimilarity();
+    }
+
+    private function isConversationalMessage(string $message): bool
+    {
+        $normalized = mb_strtolower(trim($message));
+        $normalized = preg_replace('/[^\p{L}\p{N}\s]/u', '', $normalized) ?? '';
+        $normalized = trim(preg_replace('/\s+/u', ' ', $normalized) ?? '');
+
+        if ($normalized === '') {
+            return true;
+        }
+
+        $greetingPatterns = [
+            '/^(halo|hai|hi|hello|hey|pagi|siang|sore|malam)$/u',
+            '/^selamat\s+(pagi|siang|sore|malam|datang)$/u',
+            '/^(terima kasih|makasih|thanks|thank you|ok|oke|okay)$/u',
+            '/^(test|ping)$/u',
+        ];
+
+        foreach ($greetingPatterns as $pattern) {
+            if (preg_match($pattern, $normalized)) {
+                return true;
+            }
+        }
+
+        return mb_strlen($normalized) <= 12 && preg_match('/^(halo|hai|hi|hello)\b/u', $normalized);
     }
 
     private function cosineSimilarity(array $a, array $b): float
@@ -312,16 +372,12 @@ class RAGService
     ): array {
         $systemPrompt = $chatbot->getEffectiveSystemPrompt();
 
-        if (! empty($context)) {
-            $systemPrompt .= "\n\n" . $context;
-        }
+        $systemPrompt .= "\n\n" . $this->composeContextPolicy($chatbot, $context);
 
         $humanizeBlock = $chatbot->composeHumanizeBlock($channel);
         if ($humanizeBlock !== '') {
             $systemPrompt .= "\n\n" . $humanizeBlock;
         }
-
-        $systemPrompt .= "\n\nJika tidak ada informasi yang relevan, katakan dengan jujur bahwa kamu tidak tahu.";
 
         $messages = [['role' => 'system', 'content' => $systemPrompt]];
 
@@ -346,17 +402,13 @@ class RAGService
     ): array {
         $systemPrompt = $chatbot->getEffectiveSystemPrompt();
 
-        if (! empty($context)) {
-            $systemPrompt .= "\n\n" . $context;
-        }
+        $systemPrompt .= "\n\n" . $this->composeContextPolicy($chatbot, $context);
+        $systemPrompt .= "\n\nKamu dapat melihat dan menganalisis gambar yang dikirim user.";
 
         $humanizeBlock = $chatbot->composeHumanizeBlock($channel);
         if ($humanizeBlock !== '') {
             $systemPrompt .= "\n\n" . $humanizeBlock;
         }
-
-        $systemPrompt .= "\n\nKamu dapat melihat dan menganalisis gambar yang dikirim user.";
-        $systemPrompt .= "\n\nJika tidak ada informasi yang relevan, katakan dengan jujur bahwa kamu tidak tahu.";
 
         $messages = [['role' => 'system', 'content' => $systemPrompt]];
 
@@ -369,6 +421,44 @@ class RAGService
         $messages[] = VisionMessageFormatter::formatImageUserMessage($imageUrl, $caption);
 
         return $messages;
+    }
+
+    private function composeContextPolicy(Chatbot $chatbot, string $context): string
+    {
+        if ($context !== '') {
+            return $context . "\n\n"
+                . 'PENTING: Jawab HANYA berdasarkan referensi di atas. '
+                . 'Jangan menggunakan pengetahuan umum atau informasi di luar referensi. '
+                . 'Jika pertanyaan tidak tercakup referensi, tolak dengan sopan dan jelaskan bahwa topik tersebut di luar konteks.';
+        }
+
+        if ($chatbot->hasIndexedKnowledge()) {
+            return 'PENTING: Chatbot ini hanya boleh menjawab berdasarkan knowledge base. '
+                . 'Jangan menjawab pertanyaan di luar konteks yang tersedia. '
+                . 'Jika tidak ada informasi relevan, tolak dengan sopan.';
+        }
+
+        return 'Jika tidak ada informasi yang relevan, katakan dengan jujur bahwa kamu tidak tahu.';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function respondOutOfContext(
+        Conversation $conversation,
+        Chatbot $chatbot,
+        int $userMessageId,
+        string $channel
+    ): array {
+        $reply = $chatbot->getOutOfContextMessage();
+        $this->saveMessage($conversation, 'assistant', $reply);
+        $conversation->update(['last_message_at' => now()]);
+
+        return $this->wrapResponse($reply, $chatbot, $channel, [
+            'sources'         => [],
+            'user_message_id' => $userMessageId,
+            'out_of_context'  => true,
+        ]);
     }
 
     private function getConversationHistory(

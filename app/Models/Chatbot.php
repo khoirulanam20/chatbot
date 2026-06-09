@@ -60,6 +60,31 @@ class Chatbot extends Model
             ?? 'Maaf, saya tidak dapat menemukan jawaban untuk pertanyaan Anda. Silakan hubungi agen kami.';
     }
 
+    public function getOutOfContextMessage(): string
+    {
+        $message = $this->settings['out_of_context_message'] ?? null;
+
+        if (is_string($message) && trim($message) !== '') {
+            return trim($message);
+        }
+
+        return 'Maaf, saya tidak dapat membantu dengan permintaan itu.';
+    }
+
+    public function getRagMinSimilarity(): float
+    {
+        $value = $this->settings['rag_min_similarity'] ?? 0.35;
+
+        return max(0.1, min(0.95, (float) $value));
+    }
+
+    public function hasIndexedKnowledge(): bool
+    {
+        return $this->knowledgeDocuments()
+            ->where('status', 'indexed')
+            ->exists();
+    }
+
     public function getAgentSessionMinutes(): int
     {
         return app(\App\Services\AgentSessionService::class)->getSessionMinutes($this);
