@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Log;
 
 class DebugWaTrace
 {
-    private const SESSION = 'ae60df';
+    private const SESSION = 'd87705';
 
     /**
      * @param  array<string, mixed>  $data
@@ -29,7 +29,7 @@ class DebugWaTrace
         ];
 
         // #region agent log
-        Log::info('[DBG-ae60df] ' . $message, [
+        Log::info('[DBG-d87705] ' . $message, [
             'hypothesisId' => $hypothesisId,
             'location'     => $location,
             'runId'        => $runId,
@@ -37,14 +37,18 @@ class DebugWaTrace
         ]);
         // #endregion
 
-        $path = base_path('.cursor/debug-ae60df.log');
-        $dir  = dirname($path);
-        if (is_dir($dir) || @mkdir($dir, 0755, true)) {
-            @file_put_contents(
-                $path,
-                json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n",
-                FILE_APPEND | LOCK_EX
-            );
+        foreach ([
+            base_path('.cursor/debug-d87705.log'),
+            storage_path('logs/debug-d87705.log'),
+        ] as $path) {
+            $dir = dirname($path);
+            if (is_dir($dir) || @mkdir($dir, 0755, true)) {
+                @file_put_contents(
+                    $path,
+                    json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n",
+                    FILE_APPEND | LOCK_EX
+                );
+            }
         }
     }
 }

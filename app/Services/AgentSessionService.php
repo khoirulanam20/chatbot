@@ -6,6 +6,7 @@ use App\Models\AgentHandoff;
 use App\Models\Chatbot;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Support\DebugWaTrace;
 
 class AgentSessionService
 {
@@ -60,12 +61,36 @@ class AgentSessionService
      */
     public function prepareForInbound(Conversation $conversation): Conversation
     {
-        $this->expireIfDue($conversation);
+        // #region agent log
+        DebugWaTrace::log('H3', 'AgentSessionService.php:prepareForInbound', 'prepare_before', [
+            'conversation_id' => $conversation->id,
+            'is_ai_active'    => $conversation->is_ai_active,
+            'status'          => $conversation->status,
+            'last_message_at' => $conversation->last_message_at?->toIso8601String(),
+        ]);
+        // #endregion
+
+        $expired = $this->expireIfDue($conversation);
         $conversation->refresh();
 
         if (! $conversation->is_ai_active && $conversation->status !== 'handoff') {
+            // #region agent log
+            DebugWaTrace::log('H3', 'AgentSessionService.php:prepareForInbound', 'repair_orphan_triggered', [
+                'conversation_id' => $conversation->id,
+            ]);
+            // #endregion
             $this->repairOrphanState($conversation);
         }
+
+        // #region agent log
+        DebugWaTrace::log('H3', 'AgentSessionService.php:prepareForInbound', 'prepare_after', [
+            'conversation_id' => $conversation->id,
+            'is_ai_active'    => $conversation->is_ai_active,
+            'status'          => $conversation->status,
+            'expired'         => $expired,
+            'is_ai_blocked'   => $this->isAiBlocked($conversation),
+        ]);
+        // #endregion
 
         return $conversation;
     }
@@ -100,11 +125,31 @@ class AgentSessionService
     {
         $conversation->loadMissing('chatbot');
 
-        if (! $conversation->chatbot?->isPauseAiOnHumanReplyEnabled()) {
+        $toggleEnabled = $conversation->chatbot?->isPauseAiOnHumanReplyEnabled() ?? false;
+
+        // #region agent log
+        DebugWaTrace::log('H1', 'AgentSessionService.php:pauseForHumanReply', 'pause_attempt', [
+            'conversation_id'  => $conversation->id,
+            'toggle_enabled'   => $toggleEnabled,
+            'before_ai_active' => $conversation->is_ai_active,
+            'before_status'    => $conversation->status,
+        ]);
+        // #endregion
+
+        if (! $toggleEnabled) {
             return false;
         }
 
         $this->applyHandoffState($conversation, $agent);
+        $conversation->refresh();
+
+        // #region agent log
+        DebugWaTrace::log('H1', 'AgentSessionService.php:pauseForHumanReply', 'pause_applied', [
+            'conversation_id' => $conversation->id,
+            'is_ai_active'    => $conversation->is_ai_active,
+            'status'          => $conversation->status,
+        ]);
+        // #endregion
 
         return true;
     }
@@ -121,6 +166,7 @@ class AgentSessionService
             'status'                   => 'handoff',
             'agent_session_started_at' => now(),
             'agent_session_ends_at'    => null,
+            'last_message_at'          => now(),
         ];
 
         if ($agent) {
@@ -216,6 +262,14 @@ class AgentSessionService
         if ($expiresAt->isFuture()) {
             return false;
         }
+
+        // #region agent log
+        DebugWaTrace::log('H3', 'AgentSessionService.php:expireIfDue', 'session_expired_resuming_ai', [
+            'conversation_id' => $conversation->id,
+            'last_message_at' => $conversation->last_message_at->toIso8601String(),
+            'idle_minutes'    => $idleMinutes,
+        ]);
+        // #endregion
 
         $this->endSession($conversation, resumeAi: true);
 

@@ -148,6 +148,16 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             $conversation->loadMissing('chatbot');
             $conversation = $agentSession->prepareForInbound($conversation);
 
+            // #region agent log
+            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'inbound_ai_check', [
+                'conversation_id' => $conversation->id,
+                'is_ai_active'    => $conversation->is_ai_active,
+                'status'          => $conversation->status,
+                'is_ai_blocked'   => $agentSession->isAiBlocked($conversation),
+                'from'            => $from,
+            ]);
+            // #endregion
+
             if ($agentSession->isAiBlocked($conversation)) {
                 $this->handleHandoffInbound(
                     $conversation,
@@ -211,6 +221,15 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
 
             $chunks   = $result['chunks'] ?? [$result['content']];
             $humanize = $chatbot->isHumanizeEnabledFor('whatsapp');
+
+            // #region agent log
+            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'ai_reply_sending', [
+                'conversation_id' => $conversation->id,
+                'is_ai_active'    => $conversation->is_ai_active,
+                'status'          => $conversation->status,
+                'chunk_count'     => count($chunks),
+            ]);
+            // #endregion
 
             Log::info('WA job sending reply', [
                 'conversation_id' => $conversation->id,

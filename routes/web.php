@@ -11,9 +11,14 @@ use App\Http\Controllers\Admin\TenantController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WaInstanceController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\ContactController;
+use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('admin.dashboard'));
+Route::get('/', [LandingController::class, 'index'])->name('landing');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
+Route::get('/privacy', fn () => inertia('Legal/Privacy'))->name('privacy');
+Route::get('/terms', fn () => inertia('Legal/Terms'))->name('terms');
 
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login'])->name('login.post');
@@ -73,6 +78,8 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
     Route::middleware('super_admin')->group(function () {
         Route::resource('tenants', TenantController::class);
         Route::post('/settings/global', [SettingsController::class, 'updateGlobal'])->name('settings.update-global');
+        Route::get('/marketing', [\App\Http\Controllers\Admin\MarketingCmsController::class, 'index'])->name('marketing.index');
+        Route::put('/marketing', [\App\Http\Controllers\Admin\MarketingCmsController::class, 'update'])->name('marketing.update');
     });
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');

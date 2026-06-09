@@ -111,6 +111,22 @@ class WhatsAppController extends Controller
             'media_url'  => $parsed['media_url'],
         ];
 
+        $conversationResolver = app(WaConversationResolver::class);
+        $contact              = $conversationResolver->findOrCreateContact($waInstance, $from);
+        $conversation         = $conversationResolver->findOrCreateConversation($waInstance, $contact);
+
+        // #region agent log
+        DebugWaTrace::log('H2', 'WhatsAppController.php:webhook', 'customer_inbound_resolved', [
+            'from'            => $from,
+            'contact_id'      => $contact->id,
+            'contact_ident'   => $contact->identifier,
+            'conversation_id' => $conversation->id,
+            'is_ai_active'    => $conversation->is_ai_active,
+            'status'          => $conversation->status,
+            'message_id'      => $messageId,
+        ]);
+        // #endregion
+
         ProcessWhatsAppMessageJob::dispatch($normalizedPayload, $waInstance->id);
 
         // #region agent log
@@ -163,6 +179,14 @@ class WhatsAppController extends Controller
         $messageId = $data['id'] ?? $data['messageId'] ?? null;
 
         if (WaOutboundService::isOutboundEcho($waInstance->id, $messageId, $customerId, $message)) {
+            // #region agent log
+            DebugWaTrace::log('H4', 'WhatsAppController.php:handleAgentReplyWebhook', 'agent_reply_skipped_echo', [
+                'wa_instance_id' => $waInstance->id,
+                'message_id'     => $messageId,
+                'customer_id'    => $customerId,
+            ]);
+            // #endregion
+
             return $this->webhookResponse('ignored_outbound_echo', $sessionId, [
                 'wa_instance_id' => $waInstance->id,
                 'message_id'     => $messageId,
@@ -173,6 +197,17 @@ class WhatsAppController extends Controller
         $agentSession         = app(AgentSessionService::class);
         $contact              = $conversationResolver->findOrCreateContact($waInstance, $customerId);
         $conversation         = $conversationResolver->findOrCreateConversation($waInstance, $contact);
+
+        // #region agent log
+        DebugWaTrace::log('H2', 'WhatsAppController.php:handleAgentReplyWebhook', 'agent_reply_resolved', [
+            'customer_id'     => $customerId,
+            'contact_id'      => $contact->id,
+            'contact_ident'   => $contact->identifier,
+            'conversation_id' => $conversation->id,
+            'message_id'      => $messageId,
+        ]);
+        // #endregion
+
         $paused               = $agentSession->pauseForHumanReply($conversation);
 
         Log::info('WA agent reply webhook: sync pause applied', [

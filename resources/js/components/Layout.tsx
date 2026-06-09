@@ -9,6 +9,7 @@ import {
     Settings,
     Smartphone,
     Users,
+    Palette,
 } from 'lucide-react';
 import { ReactNode, useEffect } from 'react';
 import { FlashToast } from '@/components/FlashToast';
@@ -28,6 +29,7 @@ const navItems = [
     { name: 'WhatsApp', href: '/admin/wa', icon: Smartphone, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
     { name: 'Pengguna', href: '/admin/users', icon: Users, roles: ['super_admin', 'admin'] },
     { name: 'Tenants', href: '/admin/tenants', icon: Building2, roles: ['super_admin'] },
+    { name: 'CMS Landing', href: '/admin/marketing', icon: Palette, roles: ['super_admin'] },
     { name: 'Pengaturan AI', href: '/admin/settings', icon: Settings, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
 ];
 

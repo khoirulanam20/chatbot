@@ -192,6 +192,67 @@ class AdminPauseAiIntegrationTest extends TestCase
         $this->assertSame('open', $conversation->status);
     }
 
+    public function test_wa_admin_reply_keeps_ai_paused_when_last_message_is_stale(): void
+    {
+        config(['services.chatery.webhook_secret' => null]);
+
+        ['conversation' => $conversation, 'wa' => $wa, 'chatbot' => $chatbot] = $this->createWaContext();
+
+        $chatbot->update([
+            'settings' => [
+                'takeover_idle_minutes'   => 1,
+                'pause_ai_on_human_reply' => true,
+            ],
+        ]);
+        $this->assertSame(1, $chatbot->fresh()->getTakeoverIdleMinutes());
+
+        $conversation->update([
+            'last_message_at' => now()->subMinutes(5),
+        ]);
+
+        $this->postJson('/api/webhook/whatsapp', [
+            'event'     => 'message',
+            'sessionId' => 'PauseTest',
+            'data'      => [
+                'type'    => 'text',
+                'fromMe'  => true,
+                'chatId'  => '628987654321@s.whatsapp.net',
+                'content' => 'Admin balas setelah jeda lama',
+                'id'      => 'agent-stale-last-msg-001',
+            ],
+        ])->assertOk()->assertJson(['status' => 'queued_agent_reply']);
+
+        $conversation->refresh();
+        $this->assertFalse($conversation->is_ai_active);
+        $this->assertSame('handoff', $conversation->status);
+
+        $agentSession = app(AgentSessionService::class);
+        $prepared = $agentSession->prepareForInbound($conversation->fresh()->load('chatbot'));
+
+        $this->assertTrue($agentSession->isAiBlocked($prepared));
+
+        $rag = Mockery::mock(RAGService::class);
+        $rag->shouldNotReceive('processMessage');
+        $this->app->instance(RAGService::class, $rag);
+
+        $inboundJob = new ProcessWhatsAppMessageJob([
+            'from'       => '628987654321@s.whatsapp.net',
+            'message'    => 'Customer balas setelah admin',
+            'message_id' => 'customer-after-stale-admin-001',
+            'type'       => 'text',
+        ], $wa->id);
+
+        $inboundJob->handle(
+            app(RAGService::class),
+            app(\App\Services\WaOutboundService::class),
+            app(AgentSessionService::class),
+            app(\App\Services\TakeoverNotificationService::class),
+            app(\App\Services\ChatImageService::class),
+            app(\App\Services\WaChateryService::class),
+            app(\App\Services\WaConversationResolver::class),
+        );
+    }
+
     public function test_prepare_for_inbound_repairs_orphan_state_with_recent_agent_message(): void
     {
         ['conversation' => $conversation] = $this->createWaContext();

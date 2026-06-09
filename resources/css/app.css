@@ -4,25 +4,31 @@
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 7%;
-        --card: 0 0% 96%;
-        --card-foreground: 0 0% 7%;
+        --color-primary: #0066FF;
+        --color-primary-active: #0052CC;
+        --color-brand-accent: #3399FF;
+        --color-accent-muted: #E6F0FF;
+        --color-ink: #1F2937;
+
+        --background: 60 9.1% 97.8%; /* stone-50 */
+        --foreground: 240 5.9% 10%; /* zinc-900 */
+        --card: 0 0% 100%;
+        --card-foreground: 240 5.9% 10%;
         --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 7%;
-        --primary: 0 0% 7%;
+        --popover-foreground: 240 5.9% 10%;
+        --primary: 216 100% 50%; /* #0066FF */
         --primary-foreground: 0 0% 100%;
-        --secondary: 220 14% 96%;
-        --secondary-foreground: 220 9% 46%;
-        --muted: 220 14% 96%;
-        --muted-foreground: 220 9% 46%;
-        --accent: 220 14% 96%;
-        --accent-foreground: 0 0% 7%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 100%;
-        --border: 220 13% 91%;
-        --input: 220 13% 91%;
-        --ring: 0 0% 7%;
+        --secondary: 60 4.8% 95.9%; /* stone-100 */
+        --secondary-foreground: 240 5.9% 10%;
+        --muted: 60 4.8% 95.9%;
+        --muted-foreground: 215.4 16.3% 46.9%;
+        --accent: 60 4.8% 95.9%;
+        --accent-foreground: 240 5.9% 10%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 60 5% 90.2%; /* stone-200 */
+        --input: 60 5% 90.2%;
+        --ring: 216 100% 50%;
         --radius: 0.5rem;
     }
 
