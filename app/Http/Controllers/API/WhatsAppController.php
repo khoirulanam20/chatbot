@@ -53,7 +53,8 @@ class WhatsAppController extends Controller
             return $this->handleAgentReplyWebhook($data, $sessionId);
         }
 
-        $from = $this->resolveCustomerIdentifier($data, $payload);
+        $conversationResolver = app(WaConversationResolver::class);
+        $from                 = $conversationResolver->resolveContactIdentifier($data, $payload);
 
         $parsed = WaWebhookPayloadParser::parseInbound($data, $payload);
 
@@ -111,9 +112,8 @@ class WhatsAppController extends Controller
             'media_url'  => $parsed['media_url'],
         ];
 
-        $conversationResolver = app(WaConversationResolver::class);
-        $contact              = $conversationResolver->findOrCreateContact($waInstance, $from);
-        $conversation         = $conversationResolver->findOrCreateConversation($waInstance, $contact);
+        $contact      = $conversationResolver->findOrCreateContact($waInstance, $from);
+        $conversation = $conversationResolver->findOrCreateConversation($waInstance, $contact);
 
         // #region agent log
         DebugWaTrace::log('H2', 'WhatsAppController.php:webhook', 'customer_inbound_resolved', [
@@ -149,8 +149,9 @@ class WhatsAppController extends Controller
      */
     private function handleAgentReplyWebhook(array $data, ?string $sessionId): JsonResponse
     {
-        $customerId = $data['chatId'] ?? $data['recipientPhone'] ?? '';
-        $message    = $data['content'] ?? '';
+        $conversationResolver = app(WaConversationResolver::class);
+        $customerId           = $conversationResolver->resolveContactIdentifier($data);
+        $message              = $data['content'] ?? '';
         $messageType = $data['type'] ?? 'text';
         $isImage     = in_array($messageType, ['image', 'imageMessage'], true);
         $isText      = in_array($messageType, ['text', 'chat'], true);
@@ -178,25 +179,9 @@ class WhatsAppController extends Controller
 
         $messageId = $data['id'] ?? $data['messageId'] ?? null;
 
-        if (WaOutboundService::isOutboundEcho($waInstance->id, $messageId, $customerId, $message)) {
-            // #region agent log
-            DebugWaTrace::log('H4', 'WhatsAppController.php:handleAgentReplyWebhook', 'agent_reply_skipped_echo', [
-                'wa_instance_id' => $waInstance->id,
-                'message_id'     => $messageId,
-                'customer_id'    => $customerId,
-            ]);
-            // #endregion
-
-            return $this->webhookResponse('ignored_outbound_echo', $sessionId, [
-                'wa_instance_id' => $waInstance->id,
-                'message_id'     => $messageId,
-            ]);
-        }
-
-        $conversationResolver = app(WaConversationResolver::class);
-        $agentSession         = app(AgentSessionService::class);
-        $contact              = $conversationResolver->findOrCreateContact($waInstance, $customerId);
-        $conversation         = $conversationResolver->findOrCreateConversation($waInstance, $contact);
+        $agentSession = app(AgentSessionService::class);
+        $contact        = $conversationResolver->findOrCreateContact($waInstance, $customerId);
+        $conversation   = $conversationResolver->findOrCreateConversation($waInstance, $contact);
 
         // #region agent log
         DebugWaTrace::log('H2', 'WhatsAppController.php:handleAgentReplyWebhook', 'agent_reply_resolved', [
@@ -208,13 +193,29 @@ class WhatsAppController extends Controller
         ]);
         // #endregion
 
-        $paused               = $agentSession->pauseForHumanReply($conversation);
+        $paused = $agentSession->pauseForHumanReply($conversation);
 
         Log::info('WA agent reply webhook: sync pause applied', [
             'conversation_id' => $conversation->id,
             'wa_instance_id'  => $waInstance->id,
             'ai_paused'       => $paused,
         ]);
+
+        if (WaOutboundService::isOutboundMessageIdEcho($waInstance->id, $messageId)) {
+            // #region agent log
+            DebugWaTrace::log('H4', 'WhatsAppController.php:handleAgentReplyWebhook', 'agent_reply_skipped_id_echo', [
+                'wa_instance_id' => $waInstance->id,
+                'message_id'     => $messageId,
+                'customer_id'    => $customerId,
+                'ai_paused'      => $paused,
+            ]);
+            // #endregion
+
+            return $this->webhookResponse('ignored_outbound_echo', $sessionId, [
+                'wa_instance_id' => $waInstance->id,
+                'message_id'     => $messageId,
+            ]);
+        }
 
         ProcessWhatsAppAgentReplyJob::dispatch([
             'customer_id' => $customerId,
@@ -231,23 +232,6 @@ class WhatsAppController extends Controller
             'customer_id'    => WaChateryService::normalizePhone($customerId),
             'message_id'     => $messageId,
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @param  array<string, mixed>  $payload
-     */
-    private function resolveCustomerIdentifier(array $data, array $payload): string
-    {
-        if (! empty($data['senderPhone'])) {
-            return (string) $data['senderPhone'];
-        }
-
-        if (! empty($data['chatId'])) {
-            return (string) $data['chatId'];
-        }
-
-        return (string) ($payload['from'] ?? '');
     }
 
     private function normalizeCustomerChatId(string $identifier): string

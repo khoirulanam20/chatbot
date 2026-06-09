@@ -8,6 +8,29 @@ use App\Models\WaInstance;
 
 class WaConversationResolver
 {
+    /**
+     * Identifier kanonik customer — selalu utamakan chatId (selaras webhook fromMe admin).
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $payload
+     */
+    public function resolveContactIdentifier(array $data, array $payload = []): string
+    {
+        if (! empty($data['chatId'])) {
+            return (string) $data['chatId'];
+        }
+
+        if (! empty($data['recipientPhone'])) {
+            return (string) $data['recipientPhone'];
+        }
+
+        if (! empty($data['senderPhone'])) {
+            return (string) $data['senderPhone'];
+        }
+
+        return (string) ($payload['from'] ?? '');
+    }
+
     public function findOrCreateContact(WaInstance $waInstance, string $customerIdentifier): Contact
     {
         $identifier = WaChateryService::normalizePhone($customerIdentifier);

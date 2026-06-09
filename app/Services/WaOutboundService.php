@@ -115,13 +115,20 @@ class WaOutboundService
         return $allSent;
     }
 
+    public static function isOutboundMessageIdEcho(int $waInstanceId, ?string $messageId): bool
+    {
+        return $messageId !== null
+            && $messageId !== ''
+            && Cache::has(self::outboundIdKey($waInstanceId, $messageId));
+    }
+
     public static function isOutboundEcho(
         int $waInstanceId,
         ?string $messageId,
         string $chatId,
         string $content
     ): bool {
-        if ($messageId && Cache::has(self::outboundIdKey($waInstanceId, $messageId))) {
+        if (self::isOutboundMessageIdEcho($waInstanceId, $messageId)) {
             return true;
         }
 

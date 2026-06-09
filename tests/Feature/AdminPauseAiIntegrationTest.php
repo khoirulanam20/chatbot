@@ -253,6 +253,130 @@ class AdminPauseAiIntegrationTest extends TestCase
         );
     }
 
+    public function test_wa_admin_and_customer_use_same_conversation_when_chat_id_is_lid(): void
+    {
+        config(['services.chatery.webhook_secret' => null]);
+
+        ['chatbot' => $chatbot, 'wa' => $wa] = $this->createWaContext();
+
+        $lidChatId = '123456789012345@lid';
+
+        $contact = Contact::withoutGlobalScopes()->create([
+            'tenant_id'  => $chatbot->tenant_id,
+            'identifier' => '123456789012345',
+            'channel'    => 'whatsapp',
+        ]);
+
+        $conversation = Conversation::create([
+            'chatbot_id'      => $chatbot->id,
+            'contact_id'      => $contact->id,
+            'channel'         => 'whatsapp',
+            'status'          => 'open',
+            'is_ai_active'    => true,
+            'last_message_at' => now(),
+        ]);
+
+        $this->postJson('/api/webhook/whatsapp', [
+            'event'     => 'message',
+            'sessionId' => 'PauseTest',
+            'data'      => [
+                'type'    => 'text',
+                'fromMe'  => true,
+                'chatId'  => $lidChatId,
+                'content' => 'Admin balas via LID chat',
+                'id'      => 'agent-lid-001',
+            ],
+        ])->assertOk()->assertJson(['status' => 'queued_agent_reply']);
+
+        $conversation->refresh();
+        $this->assertFalse($conversation->is_ai_active);
+        $this->assertSame('handoff', $conversation->status);
+
+        $rag = Mockery::mock(RAGService::class);
+        $rag->shouldNotReceive('processMessage');
+        $this->app->instance(RAGService::class, $rag);
+
+        $this->postJson('/api/webhook/whatsapp', [
+            'event'     => 'message',
+            'sessionId' => 'PauseTest',
+            'data'      => [
+                'type'        => 'text',
+                'fromMe'      => false,
+                'senderPhone' => '628987654321',
+                'chatId'      => $lidChatId,
+                'content'     => 'Customer balas setelah admin LID',
+                'id'          => 'customer-lid-001',
+            ],
+        ])->assertOk()->assertJson(['status' => 'queued']);
+
+        $rag = Mockery::mock(RAGService::class);
+        $rag->shouldNotReceive('processMessage');
+        $this->app->instance(RAGService::class, $rag);
+
+        $inboundJob = new ProcessWhatsAppMessageJob([
+            'from'       => $lidChatId,
+            'message'    => 'Customer balas setelah admin LID',
+            'message_id' => 'customer-lid-001',
+            'type'       => 'text',
+        ], $wa->id);
+
+        $inboundJob->handle(
+            app(RAGService::class),
+            app(\App\Services\WaOutboundService::class),
+            app(AgentSessionService::class),
+            app(\App\Services\TakeoverNotificationService::class),
+            app(\App\Services\ChatImageService::class),
+            app(\App\Services\WaChateryService::class),
+            app(\App\Services\WaConversationResolver::class),
+        );
+
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role'            => 'user',
+            'content'         => 'Customer balas setelah admin LID',
+        ]);
+    }
+
+    public function test_customer_inbound_prefers_chat_id_over_sender_phone(): void
+    {
+        config(['services.chatery.webhook_secret' => null]);
+
+        ['conversation' => $conversation, 'wa' => $wa] = $this->createWaContext();
+
+        $conversation->update([
+            'status'          => 'handoff',
+            'is_ai_active'    => false,
+            'last_message_at' => now(),
+        ]);
+
+        $rag = Mockery::mock(RAGService::class);
+        $rag->shouldNotReceive('processMessage');
+        $this->app->instance(RAGService::class, $rag);
+
+        $inboundJob = new ProcessWhatsAppMessageJob([
+            'from'       => '628987654321@s.whatsapp.net',
+            'message'    => 'Pesan customer',
+            'message_id' => 'customer-chatid-priority-001',
+            'type'       => 'text',
+        ], $wa->id);
+
+        $inboundJob->handle(
+            app(RAGService::class),
+            app(\App\Services\WaOutboundService::class),
+            app(AgentSessionService::class),
+            app(\App\Services\TakeoverNotificationService::class),
+            app(\App\Services\ChatImageService::class),
+            app(\App\Services\WaChateryService::class),
+            app(\App\Services\WaConversationResolver::class),
+        );
+
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role'            => 'user',
+            'content'         => 'Pesan customer',
+        ]);
+    }
+
     public function test_prepare_for_inbound_repairs_orphan_state_with_recent_agent_message(): void
     {
         ['conversation' => $conversation] = $this->createWaContext();

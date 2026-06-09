@@ -12,12 +12,6 @@
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])
     @inertiaHead
-<!-- AI CS Chatbot Widget -->
-<script
-  src="{{ asset('chatbot.js') }}"
-  data-bot-id="2"
-  defer></script>
-</head>
 <body class="antialiased">
     @inertia
 </body>

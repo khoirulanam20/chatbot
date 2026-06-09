@@ -205,6 +205,54 @@ class WaWebhookAgentReplyTest extends TestCase
         ]);
     }
 
+    public function test_from_me_with_content_hash_echo_still_pauses_ai(): void
+    {
+        config(['services.chatery.webhook_secret' => null]);
+
+        ['chatbot' => $chatbot, 'wa' => $wa] = $this->createWaSetup();
+
+        $contact = Contact::withoutGlobalScopes()->create([
+            'tenant_id'  => $chatbot->tenant_id,
+            'identifier' => '628987654321',
+            'channel'    => 'whatsapp',
+        ]);
+
+        $conversation = Conversation::create([
+            'chatbot_id'      => $chatbot->id,
+            'contact_id'      => $contact->id,
+            'channel'         => 'whatsapp',
+            'status'          => 'open',
+            'is_ai_active'    => true,
+            'last_message_at' => now(),
+        ]);
+
+        Cache::put(
+            'wa_outbound:' . $wa->id . ':hash:628987654321:' . md5('Pesan sama dengan bot'),
+            true,
+            now()->addMinutes(10)
+        );
+
+        $response = $this->postJson('/api/webhook/whatsapp', [
+            'event'     => 'message',
+            'sessionId' => 'Firsty',
+            'data'      => [
+                'type'    => 'text',
+                'fromMe'  => true,
+                'chatId'  => '628987654321@s.whatsapp.net',
+                'content' => 'Pesan sama dengan bot',
+                'id'      => 'agent-hash-echo-001',
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJson(['status' => 'queued_agent_reply']);
+
+        $conversation->refresh();
+
+        $this->assertFalse($conversation->is_ai_active);
+        $this->assertSame('handoff', $conversation->status);
+    }
+
     public function test_outbound_echo_detection_by_content_hash(): void
     {
         ['wa' => $wa] = $this->createWaSetup();
