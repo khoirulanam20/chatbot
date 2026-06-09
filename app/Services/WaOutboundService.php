@@ -15,6 +15,12 @@ class WaOutboundService
 
     public function sendText(WaInstance $waInstance, string $to, string $message): bool
     {
+        $apiKey = $this->chatery->resolveApiKey($waInstance);
+
+        if (! filled($apiKey)) {
+            return false;
+        }
+
         $sessionId = $waInstance->instance_id ?: 'default';
 
         $typingTime = $waInstance->typing_enabled
@@ -24,7 +30,7 @@ class WaOutboundService
         $this->rememberOutbound($waInstance->id, $to, $message);
 
         $result = $this->chatery->sendMessage(
-            $waInstance->api_key,
+            $apiKey,
             $to,
             $message,
             $sessionId,
@@ -36,7 +42,7 @@ class WaOutboundService
         }
 
         if ($waInstance->typing_enabled) {
-            $this->chatery->clearTyping($waInstance->api_key, $to, $sessionId);
+            $this->chatery->clearTyping($apiKey, $to, $sessionId);
         }
 
         return $result['success'];
@@ -47,6 +53,12 @@ class WaOutboundService
      */
     public function sendChunks(WaInstance $waInstance, string $to, array $chunks, int $pacingMs = 1200): bool
     {
+        $apiKey = $this->chatery->resolveApiKey($waInstance);
+
+        if (! filled($apiKey)) {
+            return false;
+        }
+
         $chunks = array_values(array_filter(
             array_map('trim', $chunks),
             fn ($c) => $c !== ''
@@ -65,7 +77,7 @@ class WaOutboundService
 
         foreach ($chunks as $index => $chunk) {
             if ($waInstance->typing_enabled) {
-                $this->chatery->sendTyping($waInstance->api_key, $to, $sessionId);
+                $this->chatery->sendTyping($apiKey, $to, $sessionId);
             }
 
             $typingTime = null;
@@ -76,7 +88,7 @@ class WaOutboundService
             $this->rememberOutbound($waInstance->id, $to, $chunk);
 
             $result = $this->chatery->sendMessage(
-                $waInstance->api_key,
+                $apiKey,
                 $to,
                 $chunk,
                 $sessionId,
@@ -97,7 +109,7 @@ class WaOutboundService
         }
 
         if ($waInstance->typing_enabled) {
-            $this->chatery->clearTyping($waInstance->api_key, $to, $sessionId);
+            $this->chatery->clearTyping($apiKey, $to, $sessionId);
         }
 
         return $allSent;

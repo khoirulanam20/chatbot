@@ -45,7 +45,10 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
         Route::resource('users', UserController::class)->except(['show']);
 
         Route::resource('wa', WaInstanceController::class)->except(['show'])->parameters(['wa' => 'waInstance']);
-        Route::post('/wa/preview-sessions', [WaInstanceController::class, 'previewSessions'])->name('wa.preview-sessions');
+        Route::get('/wa/{waInstance}/connect', [WaInstanceController::class, 'connect'])->name('wa.connect');
+        Route::post('/wa/{waInstance}/connect', [WaInstanceController::class, 'initiateConnect'])->name('wa.connect.initiate');
+        Route::get('/wa/{waInstance}/qr', [WaInstanceController::class, 'qr'])->name('wa.qr');
+        Route::get('/wa/{waInstance}/status', [WaInstanceController::class, 'status'])->name('wa.status');
         Route::post('/wa/{waInstance}/test', [WaInstanceController::class, 'testConnection'])->name('wa.test');
 
         Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');

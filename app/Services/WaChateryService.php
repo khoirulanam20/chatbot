@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\WaInstance;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -12,6 +13,13 @@ class WaChateryService
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.chatery.base_url', 'https://wa.firstudio.id/api'), '/') . '/';
+    }
+
+    public function resolveApiKey(?WaInstance $instance = null): ?string
+    {
+        $key = $instance?->api_key ?: config('services.chatery.api_key');
+
+        return filled($key) ? $key : null;
     }
 
     /**
@@ -69,7 +77,10 @@ class WaChateryService
         }
     }
 
-    public function testConnection(string $apiKey, string $sessionId = 'default'): array
+    /**
+     * @return array{success: bool, status: ?string, phone: ?string, is_connected: bool, error?: string}
+     */
+    public function getSessionStatus(string $apiKey, string $sessionId = 'default'): array
     {
         try {
             $response = Http::withHeaders([
@@ -81,10 +92,17 @@ class WaChateryService
 
             if ($response->successful()) {
                 $data = $response->json('data') ?? [];
+                $status = $data['status'] ?? null;
+
+                if (! $status && isset($data['isConnected'])) {
+                    $status = $data['isConnected'] ? 'connected' : 'disconnected';
+                }
+
                 return [
-                    'success' => true,
-                    'status'  => $data['status'] ?? $data['isConnected'] ? 'connected' : 'disconnected',
-                    'phone'   => $data['phoneNumber'] ?? $data['phone'] ?? null,
+                    'success'      => true,
+                    'status'       => $status,
+                    'phone'        => $data['phoneNumber'] ?? $data['phone'] ?? null,
+                    'is_connected' => ($status === 'connected') || ($data['isConnected'] ?? false),
                 ];
             }
 
@@ -92,14 +110,102 @@ class WaChateryService
                 ?? $response->json('error')
                 ?? 'HTTP ' . $response->status() . ': ' . $response->body();
 
-            Log::warning('WA Chatery test connection failed', [
-                'status' => $response->status(),
-                'body'   => $response->body(),
+            Log::warning('WA Chatery session status failed', [
+                'session_id' => $sessionId,
+                'status'     => $response->status(),
+                'body'       => $response->body(),
             ]);
 
-            return ['success' => false, 'error' => $errorMessage];
+            return ['success' => false, 'status' => null, 'phone' => null, 'is_connected' => false, 'error' => $errorMessage];
         } catch (\Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            return ['success' => false, 'status' => null, 'phone' => null, 'is_connected' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public function testConnection(string $apiKey, string $sessionId = 'default'): array
+    {
+        $result = $this->getSessionStatus($apiKey, $sessionId);
+
+        if ($result['success']) {
+            return [
+                'success' => true,
+                'status'  => $result['status'] ?? ($result['is_connected'] ? 'connected' : 'disconnected'),
+                'phone'   => $result['phone'],
+            ];
+        }
+
+        return ['success' => false, 'error' => $result['error'] ?? 'Unknown error'];
+    }
+
+    /**
+     * @return array{success: bool, status: ?string, qr_code: ?string, error?: string}
+     */
+    public function connectSession(string $apiKey, string $sessionId, ?array $webhooks = null): array
+    {
+        try {
+            $payload = [
+                'webhooks' => $webhooks ?? [[
+                    'url'    => $this->getWebhookUrl(),
+                    'events' => ['all'],
+                ]],
+            ];
+
+            $response = Http::withHeaders([
+                'X-Api-Key'    => $apiKey,
+                'Content-Type' => 'application/json',
+            ])
+                ->baseUrl($this->baseUrl)
+                ->timeout(30)
+                ->post('whatsapp/sessions/' . $sessionId . '/connect', $payload);
+
+            if ($response->successful()) {
+                $data = $response->json('data') ?? [];
+
+                return [
+                    'success'  => true,
+                    'status'   => $data['status'] ?? 'connecting',
+                    'qr_code'  => $data['qrCode'] ?? $data['qr_code'] ?? null,
+                ];
+            }
+
+            $errorMessage = $response->json('message')
+                ?? $response->json('error')
+                ?? 'HTTP ' . $response->status() . ': ' . $response->body();
+
+            Log::warning('WA Chatery connect failed', [
+                'session_id' => $sessionId,
+                'status'     => $response->status(),
+                'body'       => $response->body(),
+            ]);
+
+            return ['success' => false, 'status' => null, 'qr_code' => null, 'error' => $errorMessage];
+        } catch (\Exception $e) {
+            return ['success' => false, 'status' => null, 'qr_code' => null, 'error' => $e->getMessage()];
+        }
+    }
+
+    public function getQrImage(string $apiKey, string $sessionId): ?string
+    {
+        try {
+            $response = Http::withHeaders(['X-Api-Key' => $apiKey])
+                ->baseUrl($this->baseUrl)
+                ->timeout(15)
+                ->get('whatsapp/sessions/' . $sessionId . '/qr/image');
+
+            if ($response->failed()) {
+                Log::warning('WA Chatery QR image failed', [
+                    'session_id' => $sessionId,
+                    'status'     => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            return $response->body();
+        } catch (\Exception $e) {
+            Log::warning('WA Chatery QR image exception', ['message' => $e->getMessage()]);
+
+            return null;
         }
     }
 
@@ -206,7 +312,6 @@ class WaChateryService
 
     private function normalizeChatId(string $phone): string
     {
-        // Jika sudah format chatId (mengandung @), kembalikan langsung
         if (str_contains($phone, '@')) {
             return $phone;
         }
@@ -220,9 +325,6 @@ class WaChateryService
         return $phone . '@s.whatsapp.net';
     }
 
-    /**
-     * Unduh media dari Chatery (gambar WA).
-     */
     public function downloadMedia(string $apiKey, string $mediaUrl): ?string
     {
         try {
@@ -260,5 +362,27 @@ class WaChateryService
         }
 
         return $phone;
+    }
+
+    public static function sessionIdForChatbot(int $chatbotId): string
+    {
+        return 'bot-' . $chatbotId;
+    }
+
+    public static function mapChateryStatusToLocal(?string $chateryStatus, bool $isConnected = false): string
+    {
+        if ($isConnected || $chateryStatus === 'connected') {
+            return 'active';
+        }
+
+        if (in_array($chateryStatus, ['qr_ready', 'connecting'], true)) {
+            return 'connecting';
+        }
+
+        if ($chateryStatus === 'disconnected') {
+            return 'inactive';
+        }
+
+        return 'connecting';
     }
 }

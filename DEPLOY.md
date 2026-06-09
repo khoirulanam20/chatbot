@@ -9,6 +9,7 @@ APP_URL=https://your-domain.com
 
 SUMOPOD_API_KEY=...
 CHATERY_BASE_URL=https://wa.firstudio.id/api
+CHATERY_API_KEY=...            # wajib — API key global Chatery untuk connect/QR/outbound
 CHATERY_WEBHOOK_SECRET=...   # opsional — jika diisi, webhook wajib header X-Chatery-Signature valid
 SUMOPOD_CHAT_MODEL=gpt-4o-mini   # model vision untuk teks & gambar
 

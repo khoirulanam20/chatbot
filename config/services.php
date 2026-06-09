@@ -45,6 +45,7 @@ return [
 
     'chatery' => [
         'base_url'        => env('CHATERY_BASE_URL', 'https://wa.firstudio.id/api'),
+        'api_key'         => env('CHATERY_API_KEY'),
         'webhook_secret'  => env('CHATERY_WEBHOOK_SECRET'),
     ],
 

@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Pencil, Plus, Zap } from 'lucide-react';
+import { Pencil, Plus, QrCode, Zap } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -18,7 +18,7 @@ export default function WaIndex({ instances }: Props) {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="font-display text-2xl font-semibold">WhatsApp</h1>
-                        <p className="text-muted">Kelola instance WhatsApp Chatery</p>
+                        <p className="text-muted">Kelola instance WhatsApp — scan QR langsung dari web</p>
                     </div>
                     <Button asChild>
                         <Link href="/admin/wa/create">
@@ -29,13 +29,20 @@ export default function WaIndex({ instances }: Props) {
                 </div>
                 <div className="space-y-3">
                     {instances.data.map((inst) => (
-                        <div key={inst.id} className="flex items-center justify-between rounded-lg border border-hairline bg-surface-card p-4">
+                        <div
+                            key={inst.id}
+                            className="flex items-center justify-between rounded-lg border border-hairline bg-surface-card p-4"
+                        >
                             <div className="min-w-0 flex-1">
-                                <p className="font-medium">{inst.phone_number}</p>
+                                <p className="font-medium">
+                                    {inst.phone_number ?? (
+                                        <span className="text-muted">Belum terhubung</span>
+                                    )}
+                                </p>
                                 <p className="text-sm text-muted">{inst.chatbot?.name}</p>
                                 {inst.instance_id && (
                                     <p className="mt-0.5 font-mono text-xs text-muted">
-                                        Instance ID: {inst.instance_id}
+                                        Session: {inst.instance_id}
                                     </p>
                                 )}
                                 {inst.status === 'error' && inst.metadata?.last_error && (
@@ -44,6 +51,13 @@ export default function WaIndex({ instances }: Props) {
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                                 <StatusBadge status={inst.status} />
+                                {inst.status !== 'active' && (
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link href={`/admin/wa/${inst.id}/connect`}>
+                                            <QrCode className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                )}
                                 <Button variant="outline" size="sm" asChild>
                                     <Link href={`/admin/wa/${inst.id}/test`} method="post">
                                         <Zap className="h-4 w-4" />

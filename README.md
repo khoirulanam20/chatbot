@@ -52,9 +52,10 @@ SUMOPOD_BASE_URL=https://api.sumopod.ai/v1
 SUMOPOD_EMBED_MODEL=text-embedding-3-small
 SUMOPOD_CHAT_MODEL=gpt-4o
 
-# WA Chatery
+# WA Chatery (wajib di production: set API key + webhook secret)
 CHATERY_BASE_URL=https://wa.firstudio.id/api
-CHATERY_WEBHOOK_SECRET=your_webhook_secret
+CHATERY_API_KEY=
+CHATERY_WEBHOOK_SECRET=
 
 # Production: Redis
 # SESSION_DRIVER=redis
@@ -134,9 +135,9 @@ Tambahkan ke website manapun:
 ```
 
 ### WhatsApp via WA Chatery
-1. Buat instance di wa.firstudio.id
-2. Set webhook URL: `https://your-domain.com/api/webhook/whatsapp`
-3. Input API key di Admin → WhatsApp
+1. Set `CHATERY_API_KEY` di `.env` (dan `CHATERY_WEBHOOK_SECRET` untuk production)
+2. Admin → WhatsApp → Tambah Instance → pilih chatbot
+3. Scan QR code langsung dari halaman web — webhook didaftarkan otomatis ke Chatery
 
 ### Persona & Humanisasi
 - Persona terstruktur per chatbot (peran, gaya, instruksi, larangan)

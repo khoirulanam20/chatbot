@@ -7,6 +7,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
     spam: { label: 'Spam', variant: 'destructive' },
     active: { label: 'Aktif', variant: 'success' },
     inactive: { label: 'Nonaktif', variant: 'secondary' },
+    connecting: { label: 'Menghubungkan', variant: 'warning' },
     error: { label: 'Error', variant: 'destructive' },
     queued: { label: 'Antrian', variant: 'warning' },
     processing: { label: 'Memproses', variant: 'default' },

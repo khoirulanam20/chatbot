@@ -162,8 +162,9 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
         }
 
         $sessionId = $waInstance->instance_id ?: 'default';
-        if ($waInstance->typing_enabled) {
-            $waChatery->sendTyping($waInstance->api_key, $from, $sessionId);
+        $apiKey = $waChatery->resolveApiKey($waInstance);
+        if ($waInstance->typing_enabled && filled($apiKey)) {
+            $waChatery->sendTyping($apiKey, $from, $sessionId);
         }
 
         if ($type === 'image') {
@@ -172,7 +173,7 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
                     $mediaUrl,
                     $waInstance->tenant_id,
                     $conversation->id,
-                    $waInstance->api_key
+                    $apiKey ?? ''
                 );
             } catch (\Throwable $e) {
                 Log::error('WA image store failed', [

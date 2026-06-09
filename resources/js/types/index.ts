@@ -160,7 +160,7 @@ export interface KnowledgeDocument {
 
 export interface WaInstance {
     id: number;
-    phone_number: string;
+    phone_number?: string | null;
     instance_id?: string | null;
     typing_enabled?: boolean;
     typing_duration_ms?: number;
