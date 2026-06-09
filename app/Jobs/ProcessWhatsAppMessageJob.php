@@ -133,117 +133,158 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
 
         $conversation = $conversationResolver->findOrCreateConversation($waInstance, $contact);
 
-        $conversation->loadMissing('chatbot');
-        $conversation = $agentSession->prepareForInbound($conversation);
+        $lock = Cache::lock(AgentSessionService::conversationLockKey($conversation->id), 180);
 
-        if ($agentSession->isAiBlocked($conversation)) {
-            // #region agent log
-            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_handoff_blocked', [
+        if (! $lock->block(30)) {
+            Log::warning('WA job could not acquire conversation lock', [
                 'conversation_id' => $conversation->id,
-                'status'          => $conversation->status,
-            ]);
-            // #endregion
-
-            Message::create([
-                'conversation_id' => $conversation->id,
-                'role'            => 'user',
-                'content'         => $text,
-            ]);
-            $agentSession->touchActivity($conversation);
-            $takeoverNotifications->notifyNewMessageDuringHandoff($conversation, $text);
-
-            Log::info('WA job handoff: message saved, no AI reply', [
-                'conversation_id' => $conversation->id,
-                'status'          => $conversation->status,
+                'message_id'      => $messageId,
             ]);
 
-            $this->markProcessed($waInstance->id, $messageId);
-            return;
+            throw new RuntimeException('Could not acquire conversation lock');
         }
 
-        $sessionId = $waInstance->instance_id ?: 'default';
-        $apiKey = $waChatery->resolveApiKey($waInstance);
-        if ($waInstance->typing_enabled && filled($apiKey)) {
-            $waChatery->sendTyping($apiKey, $from, $sessionId);
-        }
+        try {
+            $conversation->loadMissing('chatbot');
+            $conversation = $agentSession->prepareForInbound($conversation);
 
-        if ($type === 'image') {
-            $stored = $this->storeInboundImage(
-                $chatImageService,
-                $waChatery,
-                $mediaUrl,
-                $apiKey,
-                $waInstance->tenant_id,
-                $conversation->id
-            );
+            if ($agentSession->isAiBlocked($conversation)) {
+                $this->handleHandoffInbound(
+                    $conversation,
+                    $text,
+                    $agentSession,
+                    $takeoverNotifications,
+                    $waInstance->id,
+                    $messageId
+                );
 
-            $caption = $text !== '' ? $text : '[Gambar]';
-            $result  = $rag->processImageMessage($conversation, $stored['url'], $caption);
-        } else {
-            $result = $rag->processMessage($conversation, $text);
-        }
+                return;
+            }
 
-        $conversation->refresh();
+            $sessionId = $waInstance->instance_id ?: 'default';
+            $apiKey      = $waChatery->resolveApiKey($waInstance);
+            if ($waInstance->typing_enabled && filled($apiKey)) {
+                $waChatery->sendTyping($apiKey, $from, $sessionId);
+            }
 
-        if (! empty($result['silent']) || ($result['content'] ?? '') === '') {
-            Log::info('WA reply skipped (handoff/silent)', [
+            if ($type === 'image') {
+                $stored = $this->storeInboundImage(
+                    $chatImageService,
+                    $waChatery,
+                    $mediaUrl,
+                    $apiKey,
+                    $waInstance->tenant_id,
+                    $conversation->id
+                );
+
+                $caption = $text !== '' ? $text : '[Gambar]';
+                $result  = $rag->processImageMessage($conversation, $stored['url'], $caption);
+            } else {
+                $result = $rag->processMessage($conversation, $text);
+            }
+
+            $conversation->refresh();
+
+            if ($agentSession->isAiBlocked($conversation)) {
+                Log::info('WA reply skipped (handoff after RAG)', [
+                    'conversation_id' => $conversation->id,
+                    'is_ai_active'    => $conversation->is_ai_active,
+                    'status'          => $conversation->status,
+                ]);
+
+                $this->markProcessed($waInstance->id, $messageId);
+
+                return;
+            }
+
+            if (! empty($result['silent']) || ($result['content'] ?? '') === '') {
+                Log::info('WA reply skipped (handoff/silent)', [
+                    'conversation_id' => $conversation->id,
+                    'is_ai_active'    => $conversation->is_ai_active,
+                    'status'          => $conversation->status,
+                ]);
+
+                $this->markProcessed($waInstance->id, $messageId);
+
+                return;
+            }
+
+            $chunks   = $result['chunks'] ?? [$result['content']];
+            $humanize = $chatbot->isHumanizeEnabledFor('whatsapp');
+
+            Log::info('WA job sending reply', [
                 'conversation_id' => $conversation->id,
                 'is_ai_active'    => $conversation->is_ai_active,
                 'status'          => $conversation->status,
+                'chunk_count'     => count($chunks),
             ]);
 
-            $this->markProcessed($waInstance->id, $messageId);
-            return;
-        }
+            $sent = $humanize && count($chunks) > 1
+                ? $waOutbound->sendChunks(
+                    $waInstance,
+                    $from,
+                    $chunks,
+                    (int) ($result['pacing_ms'] ?? $chatbot->getHumanizeSettings()['pacing_ms'])
+                )
+                : $waOutbound->sendText($waInstance, $from, $result['content']);
 
-        $chunks   = $result['chunks'] ?? [$result['content']];
-        $humanize = $chatbot->isHumanizeEnabledFor('whatsapp');
+            if (! $sent) {
+                Log::error('WA outbound failed', [
+                    'wa_instance_id'  => $waInstance->id,
+                    'conversation_id' => $conversation->id,
+                    'from'            => $from,
+                ]);
 
-        Log::info('WA job sending reply', [
-            'conversation_id' => $conversation->id,
-            'is_ai_active'    => $conversation->is_ai_active,
-            'status'          => $conversation->status,
-            'chunk_count'     => count($chunks),
-        ]);
+                DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_outbound_failed', [
+                    'conversation_id' => $conversation->id,
+                ]);
 
-        $sent = $humanize && count($chunks) > 1
-            ? $waOutbound->sendChunks(
-                $waInstance,
-                $from,
-                $chunks,
-                (int) ($result['pacing_ms'] ?? $chatbot->getHumanizeSettings()['pacing_ms'])
-            )
-            : $waOutbound->sendText($waInstance, $from, $result['content']);
+                throw new RuntimeException('WA outbound send failed');
+            }
 
-        if (! $sent) {
-            Log::error('WA outbound failed', [
-                'wa_instance_id'  => $waInstance->id,
+            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_completed_ok', [
+                'conversation_id' => $conversation->id,
+                'message_id'      => $messageId,
+            ]);
+
+            Log::info('WA job completed', [
                 'conversation_id' => $conversation->id,
                 'from'            => $from,
             ]);
 
-            // #region agent log
-            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_outbound_failed', [
-                'conversation_id' => $conversation->id,
-            ]);
-            // #endregion
-
-            throw new RuntimeException('WA outbound send failed');
+            $this->markProcessed($waInstance->id, $messageId);
+        } finally {
+            $lock->release();
         }
+    }
 
-        // #region agent log
-        DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_completed_ok', [
+    private function handleHandoffInbound(
+        Conversation $conversation,
+        string $text,
+        AgentSessionService $agentSession,
+        TakeoverNotificationService $takeoverNotifications,
+        int $waInstanceId,
+        ?string $messageId
+    ): void {
+        DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_handoff_blocked', [
             'conversation_id' => $conversation->id,
-            'message_id'      => $messageId,
+            'status'          => $conversation->status,
         ]);
-        // #endregion
 
-        Log::info('WA job completed', [
+        Message::create([
             'conversation_id' => $conversation->id,
-            'from'            => $from,
+            'role'            => 'user',
+            'content'         => $text,
+        ]);
+        $agentSession->touchActivity($conversation);
+        $takeoverNotifications->notifyNewMessageDuringHandoff($conversation, $text);
+
+        Log::info('WA job handoff: message saved, no AI reply', [
+            'conversation_id' => $conversation->id,
+            'status'          => $conversation->status,
         ]);
 
-        $this->markProcessed($waInstance->id, $messageId);
+        $this->markProcessed($waInstanceId, $messageId);
     }
 
     public function failed(\Throwable $e): void

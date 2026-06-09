@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ProcessWhatsAppAgentReplyJob implements ShouldQueue, ShouldBeUnique
@@ -75,32 +76,50 @@ class ProcessWhatsAppAgentReplyJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        $contact = $conversationResolver->findOrCreateContact($waInstance, $customerId);
+        $contact      = $conversationResolver->findOrCreateContact($waInstance, $customerId);
         $conversation = $conversationResolver->findOrCreateConversation($waInstance, $contact);
 
-        $paused = $agentSession->pauseForHumanReply($conversation);
+        $lock = Cache::lock(AgentSessionService::conversationLockKey($conversation->id), 60);
 
-        $metadata = ['source' => 'whatsapp_direct'];
-        if ($type === 'image') {
-            $metadata['type'] = 'image';
-            if (! empty($this->payload['media_url'])) {
-                $metadata['url'] = $this->payload['media_url'];
-            }
+        if (! $lock->block(30)) {
+            Log::warning('WA agent reply job: could not acquire conversation lock', [
+                'conversation_id' => $conversation->id,
+            ]);
+
+            throw new \RuntimeException('Could not acquire conversation lock for agent reply');
         }
 
-        Message::create([
-            'conversation_id' => $conversation->id,
-            'role'            => 'agent',
-            'content'         => $message,
-            'metadata'        => $metadata,
-        ]);
+        try {
+            $conversation->refresh();
 
-        $agentSession->touchActivity($conversation);
+            $paused = $agentSession->isInHandoff($conversation)
+                ? true
+                : $agentSession->pauseForHumanReply($conversation);
 
-        Log::info('WA agent reply processed', [
-            'conversation_id' => $conversation->id,
-            'wa_instance_id'  => $waInstance->id,
-            'ai_paused'       => $paused,
-        ]);
+            $metadata = ['source' => 'whatsapp_direct'];
+            if ($type === 'image') {
+                $metadata['type'] = 'image';
+                if (! empty($this->payload['media_url'])) {
+                    $metadata['url'] = $this->payload['media_url'];
+                }
+            }
+
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'role'            => 'agent',
+                'content'         => $message,
+                'metadata'        => $metadata,
+            ]);
+
+            $agentSession->touchActivity($conversation);
+
+            Log::info('WA agent reply processed', [
+                'conversation_id' => $conversation->id,
+                'wa_instance_id'  => $waInstance->id,
+                'ai_paused'       => $paused,
+            ]);
+        } finally {
+            $lock->release();
+        }
     }
 }

@@ -167,7 +167,19 @@ class ConversationController extends Controller
         $this->authorize('update', $conversation);
 
         $request->validate(['status' => 'required|in:open,resolved,spam,handoff']);
-        $conversation->update(['status' => $request->status]);
+        $newStatus = $request->status;
+
+        if ($newStatus === 'handoff') {
+            $conversation->update([
+                'status'                   => 'handoff',
+                'is_ai_active'             => false,
+                'agent_session_started_at' => $conversation->agent_session_started_at ?? now(),
+            ]);
+        } elseif ($newStatus === 'open' && $this->agentSession->isInHandoff($conversation)) {
+            $this->agentSession->endSession($conversation, resumeAi: true);
+        } else {
+            $conversation->update(['status' => $newStatus]);
+        }
 
         return back()->with('success', 'Status percakapan diperbarui.');
     }

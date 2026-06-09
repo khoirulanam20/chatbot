@@ -49,6 +49,11 @@ class AgentSessionService
         return $this->isInHandoff($conversation);
     }
 
+    public static function conversationLockKey(int $conversationId): string
+    {
+        return "wa_conversation:{$conversationId}";
+    }
+
     /**
      * Perbaiki state percakapan sebelum memproses pesan masuk (WA/web).
      * Mengatasi data legacy: is_ai_active=false tapi status masih open.
@@ -59,8 +64,7 @@ class AgentSessionService
         $conversation->refresh();
 
         if (! $conversation->is_ai_active && $conversation->status !== 'handoff') {
-            $this->endSession($conversation, resumeAi: true);
-            $conversation->refresh();
+            $this->repairOrphanState($conversation);
         }
 
         return $conversation;
@@ -124,6 +128,33 @@ class AgentSessionService
         }
 
         $conversation->update($updates);
+    }
+
+    private function repairOrphanState(Conversation $conversation): void
+    {
+        if ($this->hasRecentAgentMessage($conversation)) {
+            $conversation->update([
+                'status'                   => 'handoff',
+                'agent_session_started_at' => $conversation->agent_session_started_at ?? now(),
+            ]);
+            $conversation->refresh();
+
+            return;
+        }
+
+        $this->endSession($conversation, resumeAi: true);
+        $conversation->refresh();
+    }
+
+    private function hasRecentAgentMessage(Conversation $conversation): bool
+    {
+        $chatbot = $conversation->chatbot ?? $conversation->load('chatbot')->chatbot;
+        $idleMinutes = $this->getIdleMinutes($chatbot);
+
+        return $conversation->messages()
+            ->where('role', 'agent')
+            ->where('created_at', '>=', now()->subMinutes($idleMinutes))
+            ->exists();
     }
 
     public function touchActivity(Conversation $conversation): void

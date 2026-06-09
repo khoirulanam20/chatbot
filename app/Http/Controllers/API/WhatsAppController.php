@@ -7,7 +7,9 @@ use App\Jobs\ProcessWhatsAppAgentReplyJob;
 use App\Jobs\ProcessWhatsAppMessageJob;
 use App\Models\WaInstance;
 use App\Support\DebugWaTrace;
+use App\Services\AgentSessionService;
 use App\Services\WaChateryService;
+use App\Services\WaConversationResolver;
 use App\Services\WaOutboundService;
 use App\Services\WaWebhookPayloadParser;
 use Illuminate\Http\JsonResponse;
@@ -166,6 +168,18 @@ class WhatsAppController extends Controller
                 'message_id'     => $messageId,
             ]);
         }
+
+        $conversationResolver = app(WaConversationResolver::class);
+        $agentSession         = app(AgentSessionService::class);
+        $contact              = $conversationResolver->findOrCreateContact($waInstance, $customerId);
+        $conversation         = $conversationResolver->findOrCreateConversation($waInstance, $contact);
+        $paused               = $agentSession->pauseForHumanReply($conversation);
+
+        Log::info('WA agent reply webhook: sync pause applied', [
+            'conversation_id' => $conversation->id,
+            'wa_instance_id'  => $waInstance->id,
+            'ai_paused'       => $paused,
+        ]);
 
         ProcessWhatsAppAgentReplyJob::dispatch([
             'customer_id' => $customerId,
