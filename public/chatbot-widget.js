@@ -213,7 +213,6 @@
         </div>
         <div id="cb-input-area">
           <input type="file" id="cb-file-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden />
-          <button id="cb-attach-btn" aria-label="Kirim gambar" type="button">${ICONS.attach}</button>
           <textarea id="cb-input" placeholder="Ketik pesan..." rows="1"></textarea>
           <button id="cb-send-btn" aria-label="Kirim" type="button">${ICONS.send}</button>
         </div>
