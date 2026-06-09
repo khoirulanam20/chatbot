@@ -125,6 +125,43 @@ class RAGServiceContextTest extends TestCase
         $this->assertStringContainsString('Halo', $result['content']);
     }
 
+    public function test_rejects_without_indexed_knowledge_when_knowledge_only_default(): void
+    {
+        $tenant = $this->createTenant();
+        $chatbot = $this->createChatbot($tenant);
+
+        $contact = Contact::withoutGlobalScopes()->create([
+            'tenant_id'  => $tenant->id,
+            'identifier' => 'web_no_kb',
+            'channel'    => 'web',
+        ]);
+
+        $conversation = Conversation::create([
+            'session_id'      => 'no-kb-session',
+            'chatbot_id'      => $chatbot->id,
+            'contact_id'      => $contact->id,
+            'channel'         => 'web',
+            'status'          => 'open',
+            'is_ai_active'    => true,
+            'last_message_at' => now(),
+        ]);
+        $conversation->load('chatbot');
+
+        $sumopod = Mockery::mock(SumopodService::class);
+        $sumopod->shouldReceive('withTenantSettings')->andReturnSelf();
+        $sumopod->shouldReceive('embed')->once()->andReturn([1.0, 0.0, 0.0]);
+        $sumopod->shouldNotReceive('chatOnce');
+        $this->app->instance(SumopodService::class, $sumopod);
+
+        $result = app(RAGService::class)->processMessage(
+            $conversation,
+            'buatkan artikel tentang prabowo'
+        );
+
+        $this->assertTrue($result['out_of_context'] ?? false);
+        $this->assertSame('Maaf, saya tidak dapat membantu dengan permintaan itu.', $result['content']);
+    }
+
     public function test_allows_question_when_similarity_is_high_enough(): void
     {
         $embedding = [0.6, 0.8, 0.0];

@@ -85,6 +85,17 @@ class Chatbot extends Model
             ->exists();
     }
 
+    /**
+     * Jika aktif (default), bot hanya menjawab pertanyaan yang relevan dengan knowledge base.
+     * Pertanyaan di luar konteks ditolak tanpa memanggil LLM.
+     */
+    public function isKnowledgeOnlyEnabled(): bool
+    {
+        $value = $this->settings['knowledge_only'] ?? true;
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
     public function getAgentSessionMinutes(): int
     {
         return app(\App\Services\AgentSessionService::class)->getSessionMinutes($this);

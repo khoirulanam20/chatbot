@@ -90,7 +90,7 @@ class RAGService
                 $search         = $this->semanticSearch($chatbot, $queryEmbedding);
                 $chunks         = $search['chunks'];
 
-                if ($this->shouldRejectAsOutOfContext($chatbot, $caption, $search['best_score'])) {
+                if ($this->shouldRejectAsOutOfContext($chatbot, $caption, $search)) {
                     return $this->respondOutOfContext($conversation, $chatbot, $userMsg->id, $channel);
                 }
 
@@ -177,7 +177,7 @@ class RAGService
             $chunks         = $search['chunks'];
             $channel        = $conversation->channel ?? 'web';
 
-            if ($this->shouldRejectAsOutOfContext($chatbot, $userMessage, $search['best_score'])) {
+            if ($this->shouldRejectAsOutOfContext($chatbot, $userMessage, $search)) {
                 return $this->respondOutOfContext($conversation, $chatbot, $userMsg->id, $channel);
             }
 
@@ -289,14 +289,26 @@ class RAGService
         return ['chunks' => $relevant, 'best_score' => $bestScore];
     }
 
-    private function shouldRejectAsOutOfContext(Chatbot $chatbot, string $userMessage, float $bestScore): bool
+    /**
+     * @param  array{chunks: array<int, KnowledgeChunk>, best_score: float}  $search
+     */
+    private function shouldRejectAsOutOfContext(Chatbot $chatbot, string $userMessage, array $search): bool
     {
-        if (! $chatbot->hasIndexedKnowledge()) {
+        if ($this->isConversationalMessage($userMessage)) {
             return false;
         }
 
-        if ($this->isConversationalMessage($userMessage)) {
-            return false;
+        if (! $chatbot->isKnowledgeOnlyEnabled()) {
+            if (! $chatbot->hasIndexedKnowledge()) {
+                return false;
+            }
+        }
+
+        $bestScore = $search['best_score'];
+        $chunks    = $search['chunks'];
+
+        if (empty($chunks)) {
+            return true;
         }
 
         return $bestScore < $chatbot->getRagMinSimilarity();
