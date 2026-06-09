@@ -24,6 +24,8 @@
   let pendingImageFile = null;
   let pendingImagePreviewUrl = null;
   let suppressEnterUntil = 0;
+  let suppressSendUntil = 0;
+  var SEND_GUARD_MS = 1200;
 
   const ICONS = {
     bot: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
@@ -159,6 +161,13 @@
     }
     #cb-image-preview-cancel:hover { border-color: #ef4444; color: #ef4444; }
     #cb-image-preview-cancel svg { width: 16px; height: 16px; }
+    #cb-image-preview-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    #cb-image-send-btn {
+      background: var(--cb-primary, #4F46E5); color: #fff; border: none;
+      border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+    }
+    #cb-image-send-btn:hover { opacity: 0.92; }
     #cb-footer { text-align: center; padding: 6px; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
     .cb-msg b, .cb-msg strong { font-weight: 700; }
     .cb-msg em, .cb-msg i { font-style: italic; }
@@ -195,9 +204,12 @@
           <img id="cb-image-preview-img" src="" alt="Pratinjau gambar" />
           <div id="cb-image-preview-info">
             <div id="cb-image-preview-label">Gambar siap dikirim</div>
-            <div id="cb-image-preview-hint">Tulis deskripsi di bawah, lalu tekan kirim</div>
+            <div id="cb-image-preview-hint">Tulis deskripsi (opsional), lalu klik Kirim gambar</div>
           </div>
-          <button id="cb-image-preview-cancel" type="button" aria-label="Batalkan gambar">${ICONS.close}</button>
+          <div id="cb-image-preview-actions">
+            <button id="cb-image-send-btn" type="button">Kirim gambar</button>
+            <button id="cb-image-preview-cancel" type="button" aria-label="Batalkan gambar">${ICONS.close}</button>
+          </div>
         </div>
         <div id="cb-input-area">
           <input type="file" id="cb-file-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden />
@@ -220,9 +232,22 @@
   function bindEvents() {
     document.getElementById('cb-bubble').addEventListener('click', toggleWindow);
     document.getElementById('cb-close-btn').addEventListener('click', toggleWindow);
-    document.getElementById('cb-send-btn').addEventListener('click', sendMessage);
-    document.getElementById('cb-attach-btn').addEventListener('click', function () {
+    document.getElementById('cb-send-btn').addEventListener('click', function (e) {
+      if (Date.now() < suppressSendUntil) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      sendMessage();
+    });
+    document.getElementById('cb-attach-btn').addEventListener('click', function (e) {
+      e.preventDefault();
+      blockSendGuard();
       document.getElementById('cb-file-input').click();
+    });
+    document.getElementById('cb-image-send-btn').addEventListener('click', function (e) {
+      e.preventDefault();
+      sendPendingImage();
     });
     document.getElementById('cb-file-input').addEventListener('change', function (e) {
       var file = e.target.files && e.target.files[0];
@@ -421,17 +446,40 @@
     isTyping = false;
   }
 
+  function blockSendGuard() {
+    suppressSendUntil = Date.now() + SEND_GUARD_MS;
+    suppressEnterUntil = Date.now() + SEND_GUARD_MS;
+    var sendBtn = document.getElementById('cb-send-btn');
+    if (sendBtn) {
+      sendBtn.style.pointerEvents = 'none';
+      setTimeout(function () {
+        sendBtn.style.pointerEvents = '';
+      }, SEND_GUARD_MS);
+    }
+  }
+
+  function sendPendingImage() {
+    if (!pendingImageFile || isTyping) return;
+    var input = document.getElementById('cb-input');
+    var text = input.value.trim();
+    uploadImage(pendingImageFile, text);
+    clearPendingImage();
+    input.value = '';
+    input.style.height = 'auto';
+    input.placeholder = 'Ketik pesan...';
+  }
+
   function sendMessage() {
     const input = document.getElementById('cb-input');
     const text = input.value.trim();
     if (isTyping) return;
 
+    if (Date.now() < suppressSendUntil) {
+      return;
+    }
+
     if (pendingImageFile) {
-      uploadImage(pendingImageFile, text);
-      clearPendingImage();
-      input.value = '';
-      input.style.height = 'auto';
-      input.placeholder = 'Ketik pesan...';
+      sendPendingImage();
       return;
     }
 
@@ -452,10 +500,12 @@
     pendingImageFile = file;
     pendingImagePreviewUrl = URL.createObjectURL(file);
     showImagePreview();
-    suppressEnterUntil = Date.now() + 500;
+    blockSendGuard();
     var input = document.getElementById('cb-input');
     input.placeholder = 'Tambahkan deskripsi gambar (opsional)...';
-    input.focus();
+    setTimeout(function () {
+      input.focus();
+    }, SEND_GUARD_MS);
   }
 
   function showImagePreview() {
