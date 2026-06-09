@@ -13,19 +13,6 @@ use App\Http\Controllers\Admin\WaInstanceController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/chatbot.js', function () {
-    $widgetPath = public_path('chatbot-widget.js');
-
-    if (! is_file($widgetPath)) {
-        abort(404);
-    }
-
-    return response()
-        ->view('chatbot.loader', ['version' => filemtime($widgetPath)])
-        ->header('Content-Type', 'application/javascript; charset=UTF-8')
-        ->header('Cache-Control', 'no-cache, must-revalidate');
-})->name('chatbot.loader');
-
 Route::get('/', fn () => redirect()->route('admin.dashboard'));
 
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');

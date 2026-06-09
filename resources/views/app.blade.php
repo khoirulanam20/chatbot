@@ -10,7 +10,7 @@
     @inertiaHead
 <!-- AI CS Chatbot Widget -->
 <script
-  src="{{ url('/chatbot.js') }}"
+  src="{{ asset('chatbot.js') }}"
   data-bot-id="2"
   defer></script>
 </head>
