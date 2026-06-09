@@ -49,7 +49,7 @@ class WaWebhookImageTest extends TestCase
                 'type' => 'image',
                 'senderPhone' => '628987654321',
                 'chatId' => '628987654321@s.whatsapp.net',
-                'content' => 'https://example.com/photo.jpg',
+                'content' => 'Ini caption produk',
                 'mediaUrl' => 'https://example.com/photo.jpg',
                 'id' => 'msg-img-001',
                 'fromMe' => false,
@@ -62,7 +62,8 @@ class WaWebhookImageTest extends TestCase
         Queue::assertPushed(ProcessWhatsAppMessageJob::class, function ($job) use ($wa) {
             return $job->waInstanceId === $wa->id
                 && ($job->payload['type'] ?? '') === 'image'
-                && ! empty($job->payload['media_url']);
+                && ($job->payload['message'] ?? '') === 'Ini caption produk'
+                && ($job->payload['media_url'] ?? '') === 'https://example.com/photo.jpg';
         });
     }
 }

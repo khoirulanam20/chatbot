@@ -9,6 +9,7 @@ use App\Models\WaInstance;
 use App\Support\DebugWaTrace;
 use App\Services\WaChateryService;
 use App\Services\WaOutboundService;
+use App\Services\WaWebhookPayloadParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -50,32 +51,18 @@ class WhatsAppController extends Controller
             return $this->handleAgentReplyWebhook($data, $sessionId);
         }
 
-        $from    = $this->resolveCustomerIdentifier($data, $payload);
-        $message = $data['content'] ?? $payload['message'] ?? '';
+        $from = $this->resolveCustomerIdentifier($data, $payload);
 
-        $messageType = $data['type'] ?? 'text';
-        $isImage     = in_array($messageType, ['image', 'imageMessage'], true);
-        $isText      = in_array($messageType, ['text', 'chat'], true);
+        $parsed = WaWebhookPayloadParser::parseInbound($data, $payload);
 
-        if (empty($from) || (! $isText && ! $isImage)) {
+        if (empty($from) || $parsed === null) {
             return $this->webhookResponse('skipped', $sessionId, [
                 'from'        => $from,
-                'messageType' => $messageType,
-                'hasMessage'  => $message !== '',
+                'messageType' => $data['type'] ?? null,
             ]);
         }
 
-        if ($isImage && empty($message)) {
-            $message = $data['caption'] ?? '[Gambar]';
-        }
-
-        if ($isText && empty($message)) {
-            return $this->webhookResponse('skipped', $sessionId, [
-                'from'        => $from,
-                'messageType' => $messageType,
-                'hasMessage'  => false,
-            ]);
-        }
+        $message = $parsed['message'];
 
         $limiter = "wa_msg:{$from}";
         if (RateLimiter::tooManyAttempts($limiter, 10)) {
@@ -118,10 +105,8 @@ class WhatsAppController extends Controller
             'message'    => $message,
             'name'       => $data['senderName'] ?? $from,
             'message_id' => $messageId,
-            'type'       => $isImage ? 'image' : 'text',
-            'media_url'  => $isImage
-                ? ($data['mediaUrl'] ?? $data['url'] ?? $data['media'] ?? $data['content'] ?? null)
-                : null,
+            'type'       => $parsed['type'],
+            'media_url'  => $parsed['media_url'],
         ];
 
         ProcessWhatsAppMessageJob::dispatch($normalizedPayload, $waInstance->id);

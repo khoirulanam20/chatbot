@@ -168,21 +168,14 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
         }
 
         if ($type === 'image') {
-            try {
-                $stored = $chatImageService->storeFromUrl(
-                    $mediaUrl,
-                    $waInstance->tenant_id,
-                    $conversation->id,
-                    $apiKey ?? ''
-                );
-            } catch (\Throwable $e) {
-                Log::error('WA image store failed', [
-                    'conversation_id' => $conversation->id,
-                    'error'           => $e->getMessage(),
-                ]);
-
-                throw new RuntimeException('WA image store failed: ' . $e->getMessage());
-            }
+            $stored = $this->storeInboundImage(
+                $chatImageService,
+                $waChatery,
+                $mediaUrl,
+                $apiKey,
+                $waInstance->tenant_id,
+                $conversation->id
+            );
 
             $caption = $text !== '' ? $text : '[Gambar]';
             $result  = $rag->processImageMessage($conversation, $stored['url'], $caption);
@@ -267,6 +260,45 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
     {
         if ($messageId) {
             Cache::put("wa_done:{$waInstanceId}:{$messageId}", true, now()->addDay());
+        }
+    }
+
+    /**
+     * @return array{path: string, url: string, size: int, mime: string}
+     */
+    private function storeInboundImage(
+        ChatImageService $chatImageService,
+        WaChateryService $waChatery,
+        string $mediaUrl,
+        ?string $apiKey,
+        int $tenantId,
+        int $conversationId
+    ): array {
+        try {
+            return $chatImageService->storeFromUrl(
+                $mediaUrl,
+                $tenantId,
+                $conversationId,
+                $apiKey
+            );
+        } catch (\Throwable $e) {
+            if (! filled($apiKey)) {
+                throw $e;
+            }
+
+            $binary = $waChatery->downloadMedia($apiKey, WaWebhookPayloadParser::normalizeMediaUrl($mediaUrl));
+
+            if ($binary === null) {
+                Log::error('WA image store failed', [
+                    'conversation_id' => $conversationId,
+                    'media_url'       => $mediaUrl,
+                    'error'           => $e->getMessage(),
+                ]);
+
+                throw new RuntimeException('WA image store failed: ' . $e->getMessage());
+            }
+
+            return $chatImageService->storeFromContents($binary, $tenantId, $conversationId);
         }
     }
 }

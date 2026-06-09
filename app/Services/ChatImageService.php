@@ -24,43 +24,8 @@ class ChatImageService
         }
 
         $contents = file_get_contents($file->getRealPath());
-        $source   = @imagecreatefromstring($contents);
 
-        if ($source === false) {
-            throw new RuntimeException('File gambar tidak valid.');
-        }
-
-        $width  = imagesx($source);
-        $height = imagesy($source);
-
-        if ($width > self::MAX_WIDTH) {
-            $newHeight = (int) round($height * (self::MAX_WIDTH / $width));
-            $resized   = imagescale($source, self::MAX_WIDTH, $newHeight);
-            imagedestroy($source);
-            $source = $resized ?: $source;
-        }
-
-        $filename = Str::uuid() . '.webp';
-        $path     = "chat-images/{$tenantId}/{$conversationId}/{$filename}";
-        $fullPath = Storage::disk('public')->path($path);
-
-        Storage::disk('public')->makeDirectory(dirname($path));
-
-        if (! imagewebp($source, $fullPath, self::WEBP_QUALITY)) {
-            imagedestroy($source);
-            throw new RuntimeException('Gagal mengonversi gambar ke WebP.');
-        }
-
-        imagedestroy($source);
-
-        $publicUrl = '/storage/' . $path;
-
-        return [
-            'path' => $path,
-            'url'  => $publicUrl,
-            'size' => (int) filesize($fullPath),
-            'mime' => 'image/webp',
-        ];
+        return $this->storeFromContents($contents, $tenantId, $conversationId);
     }
 
     /**
@@ -70,9 +35,7 @@ class ChatImageService
      */
     public function storeFromUrl(string $url, int $tenantId, int $conversationId, ?string $apiKey = null): array
     {
-        if (! function_exists('imagewebp')) {
-            throw new RuntimeException('Ekstensi GD WebP tidak tersedia di server.');
-        }
+        $url = WaWebhookPayloadParser::normalizeMediaUrl($url);
 
         $request = Http::timeout(30);
         if ($apiKey) {
@@ -84,8 +47,19 @@ class ChatImageService
             throw new RuntimeException('Gagal mengunduh gambar dari URL.');
         }
 
-        $contents = $response->body();
-        $source   = @imagecreatefromstring($contents);
+        return $this->storeFromContents($response->body(), $tenantId, $conversationId);
+    }
+
+    /**
+     * @return array{path: string, url: string, size: int, mime: string}
+     */
+    public function storeFromContents(string $contents, int $tenantId, int $conversationId): array
+    {
+        if (! function_exists('imagewebp')) {
+            throw new RuntimeException('Ekstensi GD WebP tidak tersedia di server.');
+        }
+
+        $source = @imagecreatefromstring($contents);
 
         if ($source === false) {
             throw new RuntimeException('File gambar tidak valid.');

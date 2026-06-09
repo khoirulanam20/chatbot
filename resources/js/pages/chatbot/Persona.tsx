@@ -1,5 +1,6 @@
 import { FormEventHandler, useMemo, useState } from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { getCsrfToken } from '@/lib/csrf';
 import { Loader2, Sparkles, Trash2 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ChatbotSubNav } from '@/components/ChatbotSubNav';
@@ -139,10 +140,6 @@ const BUILTIN_TEMPLATES: { title: string; description: string; persona: ChatbotP
     },
 ];
 
-function getCsrfToken(): string {
-    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-}
-
 function templateSubtitle(description?: string, role?: string, tone?: string): string {
     if (description?.trim()) {
         return description.trim();
@@ -199,6 +196,7 @@ export default function Persona({
     legacy_system_prompt,
     custom_templates,
 }: Props) {
+    const { props: pageProps } = usePage<{ csrf_token?: string }>();
     const initialHumanize = { ...DEFAULT_HUMANIZE, ...initialPersona.humanize };
 
     const { data, setData, put, processing } = useForm({
@@ -301,14 +299,24 @@ export default function Persona({
         setGenerating(true);
         setGenerateError(null);
 
+        const csrfToken = getCsrfToken(pageProps.csrf_token);
+        if (!csrfToken) {
+            setGenerateError('CSRF token tidak tersedia. Muat ulang halaman lalu coba lagi.');
+            setGenerating(false);
+            return;
+        }
+
         try {
             const res = await fetch(`/admin/chatbot/${chatbot.id}/persona/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-XSRF-TOKEN': csrfToken,
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify({ description }),
             });
 

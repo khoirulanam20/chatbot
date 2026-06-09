@@ -21,6 +21,8 @@
   let lastMessageId = null;
   let pollingInterval = null;
   let agentSessionActive = false;
+  let pendingImageFile = null;
+  let pendingImagePreviewUrl = null;
 
   const ICONS = {
     bot: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
@@ -137,6 +139,25 @@
     #cb-attach-btn:hover { border-color: var(--cb-primary, #4F46E5); color: var(--cb-primary, #4F46E5); }
     #cb-attach-btn svg { width: 18px; height: 18px; }
     .cb-msg-image { display: block; margin-bottom: 4px; }
+    #cb-image-preview {
+      display: none; padding: 10px 12px; border-top: 1px solid #f1f5f9;
+      background: #f8fafc; gap: 10px; align-items: center;
+    }
+    #cb-image-preview.cb-visible { display: flex; }
+    #cb-image-preview img {
+      width: 56px; height: 56px; object-fit: cover; border-radius: 8px;
+      border: 1px solid #e2e8f0; flex-shrink: 0;
+    }
+    #cb-image-preview-info { flex: 1; min-width: 0; }
+    #cb-image-preview-label { font-size: 12px; font-weight: 600; color: #334155; }
+    #cb-image-preview-hint { font-size: 11px; color: #64748b; margin-top: 2px; }
+    #cb-image-preview-cancel {
+      background: #fff; border: 1px solid #e2e8f0; color: #64748b;
+      width: 32px; height: 32px; border-radius: 8px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #cb-image-preview-cancel:hover { border-color: #ef4444; color: #ef4444; }
+    #cb-image-preview-cancel svg { width: 16px; height: 16px; }
     #cb-footer { text-align: center; padding: 6px; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
     .cb-msg b, .cb-msg strong { font-weight: 700; }
     .cb-msg em, .cb-msg i { font-style: italic; }
@@ -169,6 +190,14 @@
         </div>
         <div id="cb-messages"></div>
         <div id="cb-quick-replies"></div>
+        <div id="cb-image-preview">
+          <img id="cb-image-preview-img" src="" alt="Pratinjau gambar" />
+          <div id="cb-image-preview-info">
+            <div id="cb-image-preview-label">Gambar siap dikirim</div>
+            <div id="cb-image-preview-hint">Tulis deskripsi di bawah, lalu tekan kirim</div>
+          </div>
+          <button id="cb-image-preview-cancel" type="button" aria-label="Batalkan gambar">${ICONS.close}</button>
+        </div>
         <div id="cb-input-area">
           <input type="file" id="cb-file-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden />
           <button id="cb-attach-btn" aria-label="Kirim gambar" type="button">${ICONS.attach}</button>
@@ -197,8 +226,9 @@
     document.getElementById('cb-file-input').addEventListener('change', function (e) {
       var file = e.target.files && e.target.files[0];
       e.target.value = '';
-      if (file) uploadImage(file);
+      if (file) stageImage(file);
     });
+    document.getElementById('cb-image-preview-cancel').addEventListener('click', clearPendingImage);
     document.getElementById('cb-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -390,26 +420,71 @@
   function sendMessage() {
     const input = document.getElementById('cb-input');
     const text = input.value.trim();
-    if (!text || isTyping) return;
+    if (isTyping) return;
+
+    if (pendingImageFile) {
+      uploadImage(pendingImageFile, text);
+      clearPendingImage();
+      input.value = '';
+      input.style.height = 'auto';
+      input.placeholder = 'Ketik pesan...';
+      return;
+    }
+
+    if (!text) return;
     input.value = '';
     input.style.height = 'auto';
     sendMessageText(text);
   }
 
-  function uploadImage(file) {
+  function stageImage(file) {
     if (!file || isTyping) return;
     if (file.size > 10 * 1024 * 1024) {
       appendMessage('assistant', 'Ukuran gambar maksimal 10MB.');
       return;
     }
+
+    clearPendingImage();
+    pendingImageFile = file;
+    pendingImagePreviewUrl = URL.createObjectURL(file);
+    showImagePreview();
+    var input = document.getElementById('cb-input');
+    input.placeholder = 'Tambahkan deskripsi gambar (opsional)...';
+    input.focus();
+  }
+
+  function showImagePreview() {
+    var preview = document.getElementById('cb-image-preview');
+    var img = document.getElementById('cb-image-preview-img');
+    if (!preview || !img || !pendingImagePreviewUrl) return;
+    img.src = pendingImagePreviewUrl;
+    preview.classList.add('cb-visible');
+  }
+
+  function clearPendingImage() {
+    if (pendingImagePreviewUrl) {
+      URL.revokeObjectURL(pendingImagePreviewUrl);
+    }
+    pendingImageFile = null;
+    pendingImagePreviewUrl = null;
+    var preview = document.getElementById('cb-image-preview');
+    if (preview) preview.classList.remove('cb-visible');
+    var input = document.getElementById('cb-input');
+    if (input) input.placeholder = 'Ketik pesan...';
+  }
+
+  function uploadImage(file, caption) {
+    if (!file || isTyping) return;
     var tempId = 'temp_img_' + Date.now();
     var previewUrl = URL.createObjectURL(file);
-    appendMessage('user', '[Gambar]', null, tempId, { type: 'image', url: previewUrl });
+    var displayCaption = caption || '[Gambar]';
+    appendMessage('user', displayCaption, null, tempId, { type: 'image', url: previewUrl });
     showTyping();
 
     var form = new FormData();
     form.append('bot_id', BOT_ID);
     form.append('image', file);
+    if (caption) form.append('caption', caption);
     if (sessionId) form.append('session_id', sessionId);
 
     fetch(BASE_URL + '/api/chat/image', {
@@ -437,6 +512,14 @@
             if (data.metadata && data.metadata.url) {
               var img = tempEl.querySelector('img');
               if (img) img.src = data.metadata.url.startsWith('http') ? data.metadata.url : BASE_URL + data.metadata.url;
+            }
+            if (data.content && data.content !== '[Gambar]') {
+              var cap = tempEl.querySelector('div');
+              if (!cap) {
+                cap = document.createElement('div');
+                tempEl.appendChild(cap);
+              }
+              cap.innerHTML = parseMarkdown(data.content);
             }
           }
         }
