@@ -179,7 +179,10 @@ class ChatbotConfigController extends Controller
     {
         $this->authorize('view', $chatbot);
 
-        return inertia('chatbot/EmbedCode', ['chatbot' => $chatbot]);
+        return inertia('chatbot/EmbedCode', [
+            'chatbot'        => $chatbot,
+            'widget_version' => $this->chatbotWidgetVersion(),
+        ]);
     }
 
     public function persona(Chatbot $chatbot)
@@ -309,5 +312,12 @@ class ChatbotConfigController extends Controller
         $chatbot->refresh();
 
         return back()->with('success', 'Persona berhasil disimpan!');
+    }
+
+    private function chatbotWidgetVersion(): string
+    {
+        $path = public_path('chatbot.js');
+
+        return is_file($path) ? (string) filemtime($path) : (string) config('app.version', '1');
     }
 }

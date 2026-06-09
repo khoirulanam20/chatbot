@@ -7,7 +7,7 @@
   })();
 
   const BOT_ID = script.getAttribute('data-bot-id');
-  const BASE_URL = script.src.replace('/chatbot.js', '');
+  const BASE_URL = script.src.replace(/\/chatbot\.js(\?.*)?$/, '');
 
   if (!BOT_ID) {
     console.error('[ChatBot] data-bot-id is required');

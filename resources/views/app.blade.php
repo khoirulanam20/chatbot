@@ -8,9 +8,10 @@
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])
     @inertiaHead
+@php($widgetVersion = is_file(public_path('chatbot.js')) ? filemtime(public_path('chatbot.js')) : config('app.version'))
 <!-- AI CS Chatbot Widget -->
 <script
-  src="http://127.0.0.1:8000/chatbot.js"
+  src="{{ asset('chatbot.js') }}?v={{ $widgetVersion }}"
   data-bot-id="2"
   defer></script>
 </head>

@@ -7,13 +7,14 @@ import type { Chatbot } from '@/types';
 
 interface Props {
     chatbot: Chatbot;
+    widget_version: string;
 }
 
-export default function EmbedCode({ chatbot }: Props) {
+export default function EmbedCode({ chatbot, widget_version }: Props) {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const embedCode = `<!-- AI CS Chatbot Widget -->
 <script
-  src="${origin}/chatbot.js"
+  src="${origin}/chatbot.js?v=${widget_version}"
   data-bot-id="${chatbot.id}"
   defer></script>`;
 
@@ -47,7 +48,7 @@ export default function EmbedCode({ chatbot }: Props) {
                         </div>
                         <div className="rounded-lg bg-surface-soft p-3">
                             <p className="text-xs text-muted">Widget URL</p>
-                            <p className="break-all font-mono text-xs">{origin}/chatbot.js</p>
+                            <p className="break-all font-mono text-xs">{origin}/chatbot.js?v={widget_version}</p>
                         </div>
                     </div>
                 </div>
