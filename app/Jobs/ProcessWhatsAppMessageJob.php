@@ -131,7 +131,8 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        $conversation = $conversationResolver->findOrCreateConversation($waInstance, $contact);
+        $conversation   = $conversationResolver->findOrCreateConversation($waInstance, $contact);
+        $outboundChatId = $conversationResolver->resolveOutboundChatId($contact);
 
         $lock = Cache::lock(AgentSessionService::conversationLockKey($conversation->id), 180);
 
@@ -174,7 +175,7 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             $sessionId = $waInstance->instance_id ?: 'default';
             $apiKey      = $waChatery->resolveApiKey($waInstance);
             if ($waInstance->typing_enabled && filled($apiKey)) {
-                $waChatery->sendTyping($apiKey, $from, $sessionId);
+                $waChatery->sendTyping($apiKey, $outboundChatId, $sessionId);
             }
 
             if ($type === 'image') {
@@ -195,12 +196,33 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
 
             $conversation->refresh();
 
+            $handoffTriggered = ! empty($result['handoff']);
+            $replyContent     = trim((string) ($result['content'] ?? ''));
+
             if ($agentSession->isAiBlocked($conversation)) {
-                Log::info('WA reply skipped (handoff after RAG)', [
-                    'conversation_id' => $conversation->id,
-                    'is_ai_active'    => $conversation->is_ai_active,
-                    'status'          => $conversation->status,
-                ]);
+                if ($handoffTriggered && $replyContent !== '') {
+                    $sent = $waOutbound->sendText($waInstance, $outboundChatId, $replyContent);
+
+                    if (! $sent) {
+                        Log::error('WA handoff hold message outbound failed', [
+                            'conversation_id' => $conversation->id,
+                            'outbound_chat_id' => $outboundChatId,
+                        ]);
+
+                        throw new RuntimeException('WA handoff hold message send failed');
+                    }
+
+                    Log::info('WA handoff hold message sent', [
+                        'conversation_id' => $conversation->id,
+                        'outbound_chat_id' => $outboundChatId,
+                    ]);
+                } else {
+                    Log::info('WA reply skipped (handoff after RAG)', [
+                        'conversation_id' => $conversation->id,
+                        'is_ai_active'    => $conversation->is_ai_active,
+                        'status'          => $conversation->status,
+                    ]);
+                }
 
                 $this->markProcessed($waInstance->id, $messageId);
 
@@ -241,11 +263,11 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             $sent = $humanize && count($chunks) > 1
                 ? $waOutbound->sendChunks(
                     $waInstance,
-                    $from,
+                    $outboundChatId,
                     $chunks,
                     (int) ($result['pacing_ms'] ?? $chatbot->getHumanizeSettings()['pacing_ms'])
                 )
-                : $waOutbound->sendText($waInstance, $from, $result['content']);
+                : $waOutbound->sendText($waInstance, $outboundChatId, $result['content']);
 
             if (! $sent) {
                 Log::error('WA outbound failed', [

@@ -34,8 +34,9 @@ class WaConversationResolver
     public function findOrCreateContact(WaInstance $waInstance, string $customerIdentifier): Contact
     {
         $identifier = WaChateryService::normalizePhone($customerIdentifier);
+        $waChatId   = $this->canonicalWaChatId($customerIdentifier);
 
-        return Contact::withoutGlobalScopes()->firstOrCreate(
+        $contact = Contact::withoutGlobalScopes()->firstOrCreate(
             [
                 'tenant_id'  => $waInstance->tenant_id,
                 'identifier' => $identifier,
@@ -43,6 +44,43 @@ class WaConversationResolver
             ],
             ['name' => $identifier]
         );
+
+        if ($waChatId !== null) {
+            $metadata = $contact->metadata ?? [];
+            if (($metadata['wa_chat_id'] ?? null) !== $waChatId) {
+                $metadata['wa_chat_id'] = $waChatId;
+                $contact->update(['metadata' => $metadata]);
+                $contact->refresh();
+            }
+        }
+
+        return $contact;
+    }
+
+    public function canonicalWaChatId(string $raw): ?string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_contains($raw, '@')) {
+            return $raw;
+        }
+
+        $phone = WaChateryService::normalizePhone($raw);
+
+        return $phone !== '' ? $phone . '@s.whatsapp.net' : null;
+    }
+
+    public function resolveOutboundChatId(Contact $contact): string
+    {
+        $waChatId = $contact->metadata['wa_chat_id'] ?? null;
+        if (is_string($waChatId) && $waChatId !== '') {
+            return $waChatId;
+        }
+
+        return $this->canonicalWaChatId($contact->identifier) ?? $contact->identifier;
     }
 
     public function findRecentConversation(WaInstance $waInstance, Contact $contact): ?Conversation

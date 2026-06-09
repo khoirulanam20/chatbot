@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\ConversationAssignedNotification;
 use App\Services\AgentSessionService;
 use App\Services\ChatImageService;
+use App\Services\WaConversationResolver;
 use App\Services\WaOutboundService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -103,12 +104,19 @@ class ConversationController extends Controller
         if ($conversation->channel === 'whatsapp') {
             $conversation->loadMissing(['chatbot.waInstance', 'contact']);
             $waInstance = $conversation->chatbot->waInstance;
-            if ($waInstance) {
-                app(WaOutboundService::class)->sendText(
+            if ($waInstance && $conversation->contact) {
+                $outboundChatId = app(WaConversationResolver::class)
+                    ->resolveOutboundChatId($conversation->contact);
+
+                $sent = app(WaOutboundService::class)->sendText(
                     $waInstance,
-                    $conversation->contact->identifier,
+                    $outboundChatId,
                     $request->message
                 );
+
+                if (! $sent) {
+                    return back()->withErrors(['message' => 'Gagal mengirim pesan ke WhatsApp. Coba lagi.']);
+                }
             }
         }
 
@@ -170,11 +178,7 @@ class ConversationController extends Controller
         $newStatus = $request->status;
 
         if ($newStatus === 'handoff') {
-            $conversation->update([
-                'status'                   => 'handoff',
-                'is_ai_active'             => false,
-                'agent_session_started_at' => $conversation->agent_session_started_at ?? now(),
-            ]);
+            $this->agentSession->startSession($conversation);
         } elseif ($newStatus === 'open' && $this->agentSession->isInHandoff($conversation)) {
             $this->agentSession->endSession($conversation, resumeAi: true);
         } else {
