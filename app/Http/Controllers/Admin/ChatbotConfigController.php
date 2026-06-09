@@ -316,7 +316,7 @@ class ChatbotConfigController extends Controller
 
     private function chatbotWidgetVersion(): string
     {
-        $path = public_path('chatbot.js');
+        $path = public_path('chatbot-widget.js');
 
         return is_file($path) ? (string) filemtime($path) : (string) config('app.version', '1');
     }

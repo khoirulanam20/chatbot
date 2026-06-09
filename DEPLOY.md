@@ -31,6 +31,16 @@ php artisan view:cache
 php artisan optimize:clear        # jika upgrade besar, lalu cache ulang
 ```
 
+## Widget embed (`chatbot.js`)
+
+Setelah deploy, **hapus** file statis lama jika masih ada:
+
+```bash
+rm -f public/chatbot.js
+```
+
+`/chatbot.js` sekarang dilayani Laravel (loader) dan otomatis memuat `public/chatbot-widget.js` versi terbaru. **Embed lama di situs customer tidak perlu diubah** — cukup deploy + hapus `public/chatbot.js`.
+
 ## Proses background
 
 ### Queue (Horizon)

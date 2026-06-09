@@ -7,7 +7,7 @@
   })();
 
   const BOT_ID = script.getAttribute('data-bot-id');
-  const BASE_URL = script.src.replace(/\/chatbot\.js(\?.*)?$/, '');
+  const BASE_URL = script.src.replace(/\/chatbot(?:-widget)?\.js(\?.*)?$/, '');
 
   if (!BOT_ID) {
     console.error('[ChatBot] data-bot-id is required');
@@ -23,6 +23,7 @@
   let agentSessionActive = false;
   let pendingImageFile = null;
   let pendingImagePreviewUrl = null;
+  let suppressEnterUntil = 0;
 
   const ICONS = {
     bot: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
@@ -232,6 +233,9 @@
     document.getElementById('cb-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        if (Date.now() < suppressEnterUntil) {
+          return;
+        }
         sendMessage();
       }
     });
@@ -448,6 +452,7 @@
     pendingImageFile = file;
     pendingImagePreviewUrl = URL.createObjectURL(file);
     showImagePreview();
+    suppressEnterUntil = Date.now() + 500;
     var input = document.getElementById('cb-input');
     input.placeholder = 'Tambahkan deskripsi gambar (opsional)...';
     input.focus();
