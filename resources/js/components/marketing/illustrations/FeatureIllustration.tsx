@@ -26,7 +26,7 @@ export function FeatureIllustration({ type, variant = 'card', forceActive = fals
     return (
         <div
             ref={ref}
-            className={`group relative flex ${heightClass} items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-accent-muted to-canvas p-4 ${
+            className={`group relative flex ${heightClass} items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-zinc-900 to-zinc-800 p-4 ${
                 isShowcase ? '' : 'mb-6'
             }`}
         >
@@ -35,7 +35,7 @@ export function FeatureIllustration({ type, variant = 'card', forceActive = fals
                     type="button"
                     whileTap={{ scale: 0.9 }}
                     onClick={handleReplay}
-                    className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-canvas/80 text-muted opacity-0 shadow-sm backdrop-blur transition-opacity hover:text-ink group-hover:opacity-100"
+                    className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-zinc-800/80 text-muted opacity-0 shadow-sm backdrop-blur transition-opacity hover:text-on-dark group-hover:opacity-100"
                     title="Putar Ulang"
                 >
                     <RotateCcw className="h-3 w-3" />
@@ -87,7 +87,7 @@ function RagAnimation({ active, interactive }: { active: boolean; interactive: b
                 type="button"
                 disabled={!interactive || scanned}
                 onClick={handleScan}
-                className={`flex w-24 flex-col gap-2 rounded-lg border bg-canvas p-2 shadow-sm transition-all ${
+                className={`flex w-24 flex-col gap-2 rounded-lg border bg-zinc-900 p-2 shadow-sm transition-all ${
                     interactive && !scanned
                         ? 'cursor-pointer border-primary/40 hover:border-primary hover:shadow-md'
                         : 'cursor-default border-hairline'
@@ -99,7 +99,7 @@ function RagAnimation({ active, interactive }: { active: boolean; interactive: b
             >
                 <div className="flex items-center gap-1.5 border-b border-hairline pb-1">
                     <span className="text-[10px]">📄</span>
-                    <span className="text-[8px] font-medium text-ink">Kebijakan.pdf</span>
+                    <span className="text-[8px] font-medium text-on-dark">Kebijakan.pdf</span>
                 </div>
                 {[0, 1, 2].map((i) => (
                     <motion.div
@@ -133,12 +133,12 @@ function RagAnimation({ active, interactive }: { active: boolean; interactive: b
             </motion.div>
 
             <motion.div
-                className="w-32 rounded-lg border border-hairline bg-canvas p-2 shadow-md sm:w-36"
+                className="w-32 rounded-lg border border-hairline bg-zinc-900 p-2 shadow-md sm:w-36"
                 initial={{ x: 20, opacity: 0 }}
                 animate={showAnswer ? { x: 0, opacity: 1 } : { opacity: 0.3 }}
                 transition={{ delay: interactive ? 0 : 1.5, duration: 0.5 }}
             >
-                <div className="mb-2 rounded bg-surface-soft px-2 py-1 text-[8px] text-muted">
+                <div className="mb-2 rounded bg-zinc-800 px-2 py-1 text-[8px] text-muted">
                     Apa kebijakan retur?
                 </div>
                 {showAnswer ? (
@@ -146,7 +146,7 @@ function RagAnimation({ active, interactive }: { active: boolean; interactive: b
                         Retur maksimal <span className="bg-white/20 px-0.5 font-semibold">7 hari</span> dengan struk asli.
                     </div>
                 ) : (
-                    <div className="flex items-center gap-1 rounded bg-surface-card px-2 py-1.5">
+                    <div className="flex items-center gap-1 rounded bg-zinc-800 px-2 py-1.5">
                         {[0, 1, 2].map((i) => (
                             <motion.span
                                 key={i}
@@ -214,7 +214,7 @@ function WidgetAnimation({ active, interactive }: { active: boolean; interactive
 
             {(showWidget || !interactive) && (
                 <motion.div
-                    className="absolute bottom-2 right-2 flex w-40 flex-col overflow-hidden rounded-xl border border-hairline bg-canvas shadow-xl sm:w-44"
+                    className="absolute bottom-2 right-2 flex w-40 flex-col overflow-hidden rounded-xl border border-hairline bg-zinc-900 shadow-xl sm:w-44"
                     initial={{ scale: 0.8, opacity: 0, y: 20 }}
                     animate={active ? { scale: 1, opacity: 1, y: 0 } : {}}
                     transition={{ delay: interactive ? 0 : 0.8, type: 'spring', stiffness: 300, damping: 25 }}
@@ -222,7 +222,7 @@ function WidgetAnimation({ active, interactive }: { active: boolean; interactive
                     <div className="bg-primary px-3 py-2 text-[10px] font-medium text-on-primary">CS Assistant</div>
                     <div className="p-3">
                         <motion.div
-                            className="mb-2 w-fit rounded-lg rounded-tl-none bg-surface-card px-2 py-1.5 text-[9px] text-body"
+                            className="mb-2 w-fit rounded-lg rounded-tl-none bg-zinc-800 px-2 py-1.5 text-[9px] text-on-dark-soft"
                             initial={{ opacity: 0, x: -10 }}
                             animate={active ? { opacity: 1, x: 0 } : {}}
                             transition={{ delay: interactive ? 0.2 : 1.2 }}
@@ -315,7 +315,7 @@ function WhatsAppAnimation({ active, interactive }: { active: boolean; interacti
                 type="button"
                 disabled={!interactive || connected}
                 onClick={handleScan}
-                className={`relative flex h-20 w-20 items-center justify-center rounded-xl bg-canvas p-2 shadow-sm transition-all ${
+                className={`relative flex h-20 w-20 items-center justify-center rounded-xl bg-zinc-900 p-2 shadow-sm transition-all ${
                     interactive && !connected
                         ? 'cursor-pointer ring-2 ring-transparent hover:ring-primary/30'
                         : 'cursor-default'
@@ -355,12 +355,12 @@ function WhatsAppAnimation({ active, interactive }: { active: boolean; interacti
                 {messages.slice(0, visibleCount).map((msg, i) => (
                     <motion.div
                         key={i}
-                        className="relative rounded-lg rounded-tl-none bg-canvas px-2 py-1.5 shadow-sm"
+                        className="relative rounded-lg rounded-tl-none bg-zinc-900 px-2 py-1.5 shadow-sm"
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     >
-                        <div className="text-[9px] text-body">{msg.text}</div>
+                        <div className="text-[9px] text-on-dark-soft">{msg.text}</div>
                         <div className="mt-0.5 text-right text-[7px] text-muted">{msg.time}</div>
                     </motion.div>
                 ))}
@@ -430,17 +430,17 @@ function HandoffFeatureAnimation({ active, interactive }: { active: boolean; int
                 </div>
             )}
 
-            <div className="flex w-full max-w-[220px] items-center justify-between rounded-lg border border-hairline bg-canvas p-2 shadow-sm">
+            <div className="flex w-full max-w-[220px] items-center justify-between rounded-lg border border-hairline bg-zinc-900 p-2 shadow-sm">
                 <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full bg-surface-strong" />
                     <div className="space-y-1">
                         <div className="h-2 w-16 rounded bg-surface-strong" />
-                        <div className="h-1.5 w-12 rounded bg-surface-soft" />
+                        <div className="h-1.5 w-12 rounded bg-zinc-800" />
                     </div>
                 </div>
                 <motion.div
                     className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-medium ${
-                        phase >= 2 ? 'bg-surface-strong text-ink' : 'bg-primary/10 text-primary'
+                        phase >= 2 ? 'bg-surface-strong text-on-dark' : 'bg-primary/10 text-primary'
                     }`}
                     animate={phase === 2 ? { scale: [1, 1.1, 1] } : {}}
                 >
@@ -459,7 +459,7 @@ function HandoffFeatureAnimation({ active, interactive }: { active: boolean; int
                 </motion.div>
                 <motion.div
                     className={`self-start rounded-lg rounded-tl-none px-2 py-1.5 text-[9px] ${
-                        phase >= 3 ? 'bg-accent-muted text-ink' : 'bg-surface-card text-body'
+                        phase >= 3 ? 'bg-accent-muted text-on-dark' : 'bg-zinc-800 text-on-dark-soft'
                     }`}
                     initial={{ opacity: 0, y: 5 }}
                     animate={phase >= 2 ? { opacity: 1, y: 0 } : {}}

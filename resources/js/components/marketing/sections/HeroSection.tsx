@@ -1,38 +1,107 @@
 import { Bot, MessageSquare, Zap } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { HeroIllustration } from '../illustrations/HeroIllustration';
+import { AuroraBackground } from '@/components/ui/aurora-background';
+import { Spotlight } from '@/components/ui/spotlight';
+import { SparklesCore } from '@/components/ui/sparkles';
+import { MovingBorderButton } from '@/components/ui/moving-border';
+import { InfiniteMovingCards } from '@/components/ui/infinite-moving-cards';
+import { AnimatedSectionHeader } from '../aceternity/AnimatedSectionHeader';
+import { InteractiveChatPreview } from '../aceternity/InteractiveChatPreview';
+import { useScrollTo } from '../aceternity/useScrollTo';
 import { heroCopy } from '@/content/marketing';
+import { useReducedMotion } from '../motion/useReducedMotion';
+
+const trustIcons: Record<string, typeof Zap> = {
+    Zap,
+    MessageSquare,
+    Bot,
+};
 
 export function HeroSection() {
-    const scrollTo = (id: string) => {
-        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-    };
+    const scrollTo = useScrollTo();
+    const reducedMotion = useReducedMotion();
+
+    const trustItems = heroCopy.trustRow.map((item) => ({
+        quote: item.text,
+        name: item.text,
+        title: '',
+    }));
 
     return (
-        <section id="hero" className="relative overflow-hidden border-b border-hairline bg-canvas py-20 sm:py-32">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-            <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.2fr]">
-                <div className="max-w-2xl">
-                    <span className="mb-4 inline-block rounded-pill border border-hairline bg-surface-soft px-3 py-1 text-xs font-semibold tracking-widest text-muted uppercase shadow-sm">
-                        {heroCopy.eyebrow}
-                    </span>
-                    <h1 className="font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">
-                        {heroCopy.headline}
-                    </h1>
-                    <p className="mt-6 text-lg text-body">
-                        {heroCopy.subheadline}
-                    </p>
-                    <div className="mt-8 flex flex-wrap gap-3">
-                        <Button size="lg" onClick={() => scrollTo('contact')}>
-                            {heroCopy.ctaPrimary}
-                        </Button>
-                        <Button size="lg" variant="outline" onClick={() => scrollTo('cara-kerja')}>
-                            {heroCopy.ctaSecondary}
-                        </Button>
+        <AuroraBackground className="min-h-[90vh] border-b border-hairline">
+            <div className="relative flex min-h-[90vh] flex-col items-center justify-center px-4 py-20 sm:px-6">
+                {!reducedMotion && (
+                    <>
+                        <Spotlight className="-top-40 left-0 md:-top-20 md:left-60" fill="white" />
+                        <div className="pointer-events-none absolute inset-0 h-full w-full">
+                            <SparklesCore
+                                background="transparent"
+                                minSize={0.4}
+                                maxSize={1}
+                                particleDensity={80}
+                                className="h-full w-full"
+                                particleColor="#FFFFFF"
+                            />
+                        </div>
+                    </>
+                )}
+
+                <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-12 lg:grid-cols-[1fr_1.2fr]">
+                    <div className="max-w-2xl">
+                        <AnimatedSectionHeader
+                            eyebrow={heroCopy.eyebrow}
+                            headline={heroCopy.headline}
+                            subheadline={heroCopy.subheadline}
+                            align="left"
+                            typewriter={!reducedMotion}
+                        />
+                        <div className="mt-8 flex flex-wrap gap-4">
+                            <MovingBorderButton
+                                borderRadius="0.75rem"
+                                containerClassName="h-12 w-auto"
+                                className="border-slate-800 bg-slate-900/90 px-6 text-sm font-semibold text-on-dark"
+                                onClick={() => scrollTo('contact')}
+                            >
+                                {heroCopy.ctaPrimary}
+                            </MovingBorderButton>
+                            <MovingBorderButton
+                                borderRadius="0.75rem"
+                                containerClassName="h-12 w-auto"
+                                className="border-slate-800 bg-slate-900/90 px-6 text-sm font-semibold text-on-dark"
+                                onClick={() => scrollTo('cara-kerja')}
+                            >
+                                {heroCopy.ctaSecondary}
+                            </MovingBorderButton>
+                        </div>
+
+                        <div className="mt-8 flex flex-wrap gap-4">
+                            {heroCopy.trustRow.map((item) => {
+                                const Icon = trustIcons[item.icon] ?? Bot;
+                                return (
+                                    <div
+                                        key={item.text}
+                                        className="flex items-center gap-2 rounded-pill border border-white/[0.1] bg-black/40 px-3 py-1.5 text-xs text-on-dark-soft backdrop-blur-sm"
+                                    >
+                                        <Icon className="h-3.5 w-3.5 text-primary" />
+                                        {item.text}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
+
+                    <InteractiveChatPreview />
                 </div>
-                <HeroIllustration />
+
+                {!reducedMotion && (
+                    <div className="relative z-10 mt-16 w-full max-w-6xl">
+                        <InfiniteMovingCards
+                            items={trustItems}
+                            direction="right"
+                            speed="slow"
+                        />
+                    </div>
+                )}
             </div>
-        </section>
+        </AuroraBackground>
     );
 }

@@ -46,8 +46,7 @@ export function BrandTheme({ brand }: BrandThemeProps) {
         root.style.setProperty('--color-primary', brand.primary);
         root.style.setProperty('--color-primary-active', brand.primary_active);
         root.style.setProperty('--color-brand-accent', brand.brand_accent);
-        root.style.setProperty('--color-accent-muted', brand.accent_muted);
-        root.style.setProperty('--color-ink', brand.ink);
+        root.style.setProperty('--color-accent-muted', '#1e3a5f');
 
         // Set shadcn HSL variables
         const primaryHsl = hexToHSL(brand.primary);
@@ -62,7 +61,6 @@ export function BrandTheme({ brand }: BrandThemeProps) {
             root.style.removeProperty('--color-primary-active');
             root.style.removeProperty('--color-brand-accent');
             root.style.removeProperty('--color-accent-muted');
-            root.style.removeProperty('--color-ink');
             root.style.removeProperty('--primary');
             root.style.removeProperty('--ring');
         };

@@ -1,47 +1,39 @@
-import { Badge } from '@/components/ui/badge';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { motion } from 'framer-motion';
-import { staggerContainer, springUp } from '../motion/variants';
-import { SectionHeader } from '../SectionHeader';
+import { FocusCards } from '@/components/ui/focus-cards';
+import { AnimatedSectionHeader } from '../aceternity/AnimatedSectionHeader';
+import { SectionShell } from '../aceternity/SectionShell';
 import { useCasesCopy } from '@/content/marketing';
 
 export function UseCasesSection() {
+    const cards = useCasesCopy.cases.map((useCase) => ({
+        title: `${useCase.tag} — ${useCase.title}`,
+        src: '',
+    }));
+
     return (
-        <section id="use-case" className="py-20 sm:py-32">
-            <div className="mx-auto max-w-6xl px-4 sm:px-6">
-                <SectionHeader 
-                    eyebrow={useCasesCopy.eyebrow}
-                    headline={useCasesCopy.headline}
-                    subheadline={useCasesCopy.subheadline}
-                />
-                
-                <div className="mt-16 -mx-4 overflow-x-auto px-4 pb-8 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
-                    <motion.div 
-                        className="flex w-max gap-6 sm:grid sm:w-auto sm:grid-cols-2 lg:grid-cols-4"
-                        initial="hidden"
-                        whileInView="visible"
-                        viewport={{ once: true }}
-                        variants={staggerContainer}
-                    >
-                        {useCasesCopy.cases.map((useCase) => (
-                            <motion.div key={useCase.title} variants={springUp} className="w-72 sm:w-auto">
-                                <Card className="h-full transition-shadow hover:shadow-md">
-                                    <CardHeader>
-                                        <div className="mb-4 flex items-center justify-between">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-muted text-primary">
-                                                <useCase.icon className="h-6 w-6" />
-                                            </div>
-                                            <Badge variant="secondary" className="bg-canvas shadow-sm">{useCase.tag}</Badge>
-                                        </div>
-                                        <CardTitle className="text-lg">{useCase.title}</CardTitle>
-                                        <CardDescription className="mt-2 text-sm leading-relaxed">{useCase.description}</CardDescription>
-                                    </CardHeader>
-                                </Card>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                </div>
+        <SectionShell id="use-case" className="bg-canvas">
+            <AnimatedSectionHeader
+                eyebrow={useCasesCopy.eyebrow}
+                headline={useCasesCopy.headline}
+                subheadline={useCasesCopy.subheadline}
+            />
+
+            <div className="mt-16">
+                <FocusCards cards={cards} />
             </div>
-        </section>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {useCasesCopy.cases.map((useCase) => (
+                    <div
+                        key={useCase.title}
+                        className="rounded-xl border border-white/[0.1] bg-surface-dark-elevated p-4"
+                    >
+                        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20 text-primary">
+                            <useCase.icon className="h-5 w-5" />
+                        </div>
+                        <p className="text-sm leading-relaxed text-on-dark-soft">{useCase.description}</p>
+                    </div>
+                ))}
+            </div>
+        </SectionShell>
     );
 }

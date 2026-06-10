@@ -10,23 +10,23 @@ export default {
     theme: {
         extend: {
             colors: {
-                canvas: '#FFFFFF',
+                canvas: '#0a0a0a',
                 primary: {
                     DEFAULT: 'var(--color-primary)',
                     foreground: '#ffffff',
                 },
                 'primary-active': 'var(--color-primary-active)',
-                'surface-soft': '#F9FAFB',
-                'surface-card': '#FFFFFF',
-                'surface-strong': '#E7E5E4',
-                'surface-dark': '#101010',
+                'surface-soft': '#111111',
+                'surface-card': '#1a1a1a',
+                'surface-strong': '#27272a',
+                'surface-dark': '#000000',
                 'surface-dark-elevated': '#1a1a1a',
-                hairline: '#E7E5E4',
-                'hairline-soft': '#F5F5F4',
-                ink: 'var(--color-ink)',
-                body: '#4B5563',
+                hairline: '#27272a',
+                'hairline-soft': '#3f3f46',
+                ink: '#fafafa',
+                body: '#d4d4d8',
                 muted: {
-                    DEFAULT: '#6B7280',
+                    DEFAULT: '#a1a1aa',
                     foreground: '#ffffff',
                 },
                 'muted-soft': '#898989',
@@ -87,6 +87,29 @@ export default {
                 xl: '32px',
                 xxl: '48px',
                 section: '96px',
+            },
+            animation: {
+                aurora: 'aurora 60s linear infinite',
+                spotlight: 'spotlight 2s ease .75s 1 forwards',
+                scroll: 'scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite',
+                'fade-in': 'fade-in 0.5s ease-out forwards',
+            },
+            keyframes: {
+                aurora: {
+                    from: { backgroundPosition: '50% 50%, 50% 50%' },
+                    to: { backgroundPosition: '350% 50%, 350% 50%' },
+                },
+                spotlight: {
+                    '0%': { opacity: 0, transform: 'translate(-72%, -62%) scale(0.5)' },
+                    '100%': { opacity: 1, transform: 'translate(-50%,-40%) scale(1)' },
+                },
+                scroll: {
+                    to: { transform: 'translate(calc(-50% - 0.5rem))' },
+                },
+                'fade-in': {
+                    from: { opacity: 0 },
+                    to: { opacity: 1 },
+                },
             },
         },
     },

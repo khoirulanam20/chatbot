@@ -43,7 +43,7 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
     ];
 
     return (
-        <div ref={ref} aria-hidden="true" className="mb-10 flex flex-col gap-8 rounded-xl border border-hairline bg-surface-soft p-6 sm:p-8">
+        <div ref={ref} aria-hidden="true" className="mb-10 flex flex-col gap-8 rounded-xl border border-hairline bg-zinc-800 p-6 sm:p-8">
             {/* Stepper Header */}
             <div className="relative mx-auto flex w-full max-w-2xl items-center justify-between">
                 <svg className="absolute left-[10%] right-[10%] top-1/2 h-1 w-[80%] -translate-y-1/2" preserveAspectRatio="none">
@@ -80,15 +80,15 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
                                     isActive 
                                         ? 'border-primary bg-primary text-on-primary shadow-lg ring-4 ring-primary/20' 
                                         : isPast
-                                            ? 'border-primary bg-canvas text-primary'
-                                            : 'border-hairline bg-canvas text-muted hover:border-primary/50'
+                                            ? 'border-primary bg-zinc-900 text-primary'
+                                            : 'border-hairline bg-zinc-900 text-muted hover:border-primary/50'
                                 }`}
                                 animate={isActive && !reduced ? { scale: [1, 1.05, 1] } : {}}
                                 transition={{ duration: 2, repeat: isActive ? Infinity : 0 }}
                             >
                                 <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                             </motion.button>
-                            <span className={`text-xs sm:text-sm font-semibold ${isActive ? 'text-ink' : 'text-muted'}`}>
+                            <span className={`text-xs sm:text-sm font-semibold ${isActive ? 'text-on-dark' : 'text-muted'}`}>
                                 {step.label}
                             </span>
                         </div>
@@ -97,7 +97,7 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
             </div>
 
             {/* Preview Panel */}
-            <div className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-canvas shadow-sm min-h-[240px] sm:min-h-[280px]">
+            <div className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-xl border border-hairline bg-zinc-900 shadow-sm min-h-[240px] sm:min-h-[280px]">
                 <AnimatePresence mode="wait">
                     {activeStep === 0 && (
                         <motion.div
@@ -109,7 +109,7 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
                             className="absolute inset-0 flex flex-col items-center justify-center p-6"
                         >
                             <div className="flex w-full max-w-sm flex-col gap-4">
-                                <div className="flex items-center gap-3 rounded-lg border border-hairline bg-surface-soft p-3">
+                                <div className="flex items-center gap-3 rounded-lg border border-hairline bg-zinc-800 p-3">
                                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
                                         <FileText className="h-5 w-5" />
                                     </div>
@@ -123,7 +123,7 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
                                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                                     />
                                 </div>
-                                <div className="flex items-center gap-3 rounded-lg border border-hairline bg-surface-soft p-3 opacity-50">
+                                <div className="flex items-center gap-3 rounded-lg border border-hairline bg-zinc-800 p-3 opacity-50">
                                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
                                         <Globe className="h-5 w-5" />
                                     </div>
@@ -146,7 +146,7 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
                             className="absolute inset-0 flex items-center justify-center gap-6 p-6"
                         >
                             <div className="flex flex-col items-center gap-3">
-                                <div className="flex h-24 w-24 items-center justify-center rounded-xl border border-hairline bg-surface-soft shadow-sm">
+                                <div className="flex h-24 w-24 items-center justify-center rounded-xl border border-hairline bg-zinc-800 shadow-sm">
                                     <div className="grid grid-cols-4 gap-1 p-2">
                                         {Array.from({ length: 16 }).map((_, i) => (
                                             <span key={i} className="h-3 w-3 rounded-sm bg-ink" style={{ opacity: Math.random() * 0.5 + 0.5 }} />
@@ -186,7 +186,7 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
                                         <MessageSquare className="h-4 w-4" />
                                     </div>
                                     <div>
-                                        <div className="text-xs font-bold text-ink">Inbox Terpusat</div>
+                                        <div className="text-xs font-bold text-on-dark">Inbox Terpusat</div>
                                         <div className="text-[10px] text-muted">2 percakapan aktif</div>
                                     </div>
                                 </div>
@@ -204,21 +204,21 @@ export function HowItWorksIllustration({ onStepChange }: HowItWorksIllustrationP
                                 <div className="w-1/3 space-y-2 border-r border-hairline pr-4">
                                     <div className="rounded border border-primary bg-primary/5 p-2">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-semibold text-ink">Budi S.</span>
+                                            <span className="text-[10px] font-semibold text-on-dark">Budi S.</span>
                                             <Smartphone className="h-3 w-3 text-muted" />
                                         </div>
                                         <div className="mt-1 truncate text-[9px] text-muted">Tanya stok barang...</div>
                                     </div>
-                                    <div className="rounded border border-hairline bg-surface-soft p-2 opacity-50">
+                                    <div className="rounded border border-hairline bg-zinc-800 p-2 opacity-50">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-semibold text-ink">Guest_123</span>
+                                            <span className="text-[10px] font-semibold text-on-dark">Guest_123</span>
                                             <Globe className="h-3 w-3 text-muted" />
                                         </div>
                                         <div className="mt-1 truncate text-[9px] text-muted">Cara retur gmn?</div>
                                     </div>
                                 </div>
                                 <div className="flex flex-1 flex-col gap-2">
-                                    <div className="w-fit max-w-[80%] rounded-lg rounded-tl-none bg-surface-soft p-2 text-[10px] text-body">
+                                    <div className="w-fit max-w-[80%] rounded-lg rounded-tl-none bg-zinc-800 p-2 text-[10px] text-on-dark-soft">
                                         Halo, mau tanya stok barang A ukuran L masih ada?
                                     </div>
                                     <motion.div 

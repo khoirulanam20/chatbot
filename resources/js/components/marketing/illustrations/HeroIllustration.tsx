@@ -106,9 +106,9 @@ export function HeroIllustration() {
             {...(!reducedMotion ? float : {})}
         >
             <div className="absolute -inset-4 -z-10 bg-primary/10 opacity-20 blur-3xl" />
-            <div className="overflow-hidden rounded-xl border border-hairline bg-surface-soft shadow-2xl">
+            <div className="overflow-hidden rounded-xl border border-white/[0.1] bg-surface-dark-elevated shadow-2xl">
                 {/* Browser Header */}
-                <div className="flex items-center gap-2 border-b border-hairline bg-canvas px-4 py-3">
+                <div className="flex items-center gap-2 border-b border-hairline bg-zinc-900 px-4 py-3">
                     <div className="flex gap-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-error/60" />
                         <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
@@ -121,7 +121,7 @@ export function HeroIllustration() {
                 </div>
 
                 {/* Browser Content */}
-                <div className="relative h-[400px] bg-canvas p-6">
+                <div className="relative h-[400px] bg-zinc-900 p-6">
                     {/* Dummy Website Content */}
                     <div className="space-y-6 opacity-30">
                         <div className="flex items-center justify-between">
@@ -145,7 +145,7 @@ export function HeroIllustration() {
                     </div>
 
                     {/* Chat Widget */}
-                    <div className="absolute bottom-4 right-4 flex w-72 flex-col overflow-hidden rounded-xl border border-hairline bg-canvas shadow-xl">
+                    <div className="absolute bottom-4 right-4 flex w-72 flex-col overflow-hidden rounded-xl border border-white/[0.1] bg-zinc-900 shadow-xl">
                         {/* Widget Header */}
                         <div className="flex items-center justify-between bg-primary px-4 py-3">
                             <div className="flex items-center gap-2">
@@ -173,7 +173,7 @@ export function HeroIllustration() {
                                 <motion.div
                                     initial={{ opacity: 0, y: 5 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="flex max-w-[80%] items-center gap-1 rounded-lg rounded-tl-none bg-surface-card px-3 py-2"
+                                    className="flex max-w-[80%] items-center gap-1 rounded-lg rounded-tl-none bg-zinc-800 px-3 py-2"
                                 >
                                     {[0, 1, 2].map((i) => (
                                         <motion.span
@@ -189,11 +189,11 @@ export function HeroIllustration() {
                         </div>
 
                         {/* Chat Input */}
-                        <div className="border-t border-hairline bg-canvas p-3">
+                        <div className="border-t border-hairline bg-zinc-900 p-3">
                             <span className="absolute -top-6 right-4 rounded-full bg-primary px-2 py-0.5 text-[9px] font-medium text-white shadow-sm">
                                 Coba Kirim!
                             </span>
-                            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-soft px-3 py-2 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+                            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-zinc-800 px-3 py-2 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
                                 <input
                                     type="text"
                                     value={inputValue}
@@ -232,7 +232,7 @@ function ChatBubble({ side, text, reduced }: { side: 'user' | 'bot'; text: strin
                 className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed shadow-sm ${
                     isUser
                         ? 'rounded-tr-none bg-primary text-on-primary'
-                        : 'rounded-tl-none bg-surface-card text-body'
+                        : 'rounded-tl-none bg-zinc-800 text-on-dark-soft'
                 }`}
             >
                 {text}

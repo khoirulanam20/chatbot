@@ -7,27 +7,27 @@
         --color-primary: #0066FF;
         --color-primary-active: #0052CC;
         --color-brand-accent: #3399FF;
-        --color-accent-muted: #E6F0FF;
-        --color-ink: #1F2937;
+        --color-accent-muted: #1e3a5f;
+        --color-ink: #fafafa;
 
-        --background: 60 9.1% 97.8%; /* stone-50 */
-        --foreground: 240 5.9% 10%; /* zinc-900 */
-        --card: 0 0% 100%;
-        --card-foreground: 240 5.9% 10%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 240 5.9% 10%;
-        --primary: 216 100% 50%; /* #0066FF */
+        --background: 0 0% 4%;
+        --foreground: 0 0% 98%;
+        --card: 0 0% 10%;
+        --card-foreground: 0 0% 98%;
+        --popover: 0 0% 10%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 216 100% 50%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 60 4.8% 95.9%; /* stone-100 */
-        --secondary-foreground: 240 5.9% 10%;
-        --muted: 60 4.8% 95.9%;
-        --muted-foreground: 215.4 16.3% 46.9%;
-        --accent: 60 4.8% 95.9%;
-        --accent-foreground: 240 5.9% 10%;
-        --destructive: 0 84.2% 60.2%;
+        --secondary: 240 4% 16%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 240 4% 16%;
+        --muted-foreground: 240 5% 65%;
+        --accent: 240 4% 16%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 0 0% 98%;
-        --border: 60 5% 90.2%; /* stone-200 */
-        --input: 60 5% 90.2%;
+        --border: 240 4% 16%;
+        --input: 240 4% 16%;
         --ring: 216 100% 50%;
         --radius: 0.5rem;
     }
@@ -38,5 +38,12 @@
 
     body {
         @apply bg-canvas text-ink font-body;
+    }
+}
+
+@layer utilities {
+    .scroller {
+        --animation-duration: 40s;
+        --animation-direction: forwards;
     }
 }
