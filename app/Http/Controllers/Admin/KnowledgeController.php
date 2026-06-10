@@ -12,6 +12,14 @@ use Illuminate\Support\Str;
 
 class KnowledgeController extends Controller
 {
+    /** @var array<string, string> */
+    private const TEMPLATES = [
+        'umum'      => 'knowledge-base-template.txt',
+        'faq'       => 'knowledge-base-faq.txt',
+        'produk'    => 'knowledge-base-produk.txt',
+        'kebijakan' => 'knowledge-base-kebijakan.txt',
+    ];
+
     public function index(Request $request)
     {
         $chatbots  = Chatbot::all();
@@ -143,6 +151,51 @@ class KnowledgeController extends Controller
         return inertia('knowledge/Show', [
             'document' => $document,
             'chunks' => $chunks,
+        ]);
+    }
+
+    public function downloadTemplate(string $template)
+    {
+        $filename = self::TEMPLATES[$template] ?? null;
+
+        if ($filename === null) {
+            abort(404);
+        }
+
+        $path = resource_path('templates/' . $filename);
+
+        if (! is_file($path)) {
+            abort(404);
+        }
+
+        return response()->download($path, $filename, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+        ]);
+    }
+
+    public function downloadKnowledgeGuide()
+    {
+        $path = base_path('docs/knowledge-base-guide.md');
+
+        if (! is_file($path)) {
+            abort(404);
+        }
+
+        return response()->download($path, 'knowledge-base-guide.md', [
+            'Content-Type' => 'text/markdown; charset=UTF-8',
+        ]);
+    }
+
+    public function downloadPersonaGuide()
+    {
+        $path = base_path('docs/persona-guide.md');
+
+        if (! is_file($path)) {
+            abort(404);
+        }
+
+        return response()->download($path, 'persona-guide.md', [
+            'Content-Type' => 'text/markdown; charset=UTF-8',
         ]);
     }
 }

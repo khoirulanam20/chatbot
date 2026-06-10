@@ -1,6 +1,6 @@
 import { FormEventHandler, useEffect, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { FileText, Trash2 } from 'lucide-react';
+import { Download, FileText, Trash2 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -17,6 +17,13 @@ interface Props {
 
 const defaultChatbotId = (chatbotId: string | null, chatbots: Chatbot[]) =>
     chatbotId ?? String(chatbots[0]?.id ?? '');
+
+const KB_TEMPLATES = [
+    { slug: 'umum', label: 'Template umum', description: 'Panduan layanan lengkap' },
+    { slug: 'faq', label: 'Template FAQ', description: 'Pertanyaan umum pelanggan' },
+    { slug: 'produk', label: 'Template produk', description: 'Katalog produk & layanan' },
+    { slug: 'kebijakan', label: 'Template kebijakan', description: 'SOP & kebijakan resmi' },
+] as const;
 
 export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props) {
     const [tab, setTab] = useState<'upload' | 'url' | ''>('');
@@ -139,6 +146,40 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                         </option>
                     ))}
                 </select>
+
+                <div className="rounded-lg border border-hairline bg-surface-soft p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-sm font-semibold">Template & Panduan</h2>
+                            <p className="mt-1 text-xs text-muted">
+                                Format dokumen dioptimalkan untuk RAG (chunk ~500 kata). Isi placeholder
+                                lalu upload sebagai TXT/DOCX.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <a href="/admin/knowledge/guide" download>
+                                <Download className="mr-1.5 h-3.5 w-3.5" />
+                                Panduan lengkap
+                            </a>
+                        </Button>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        {KB_TEMPLATES.map((t) => (
+                            <a
+                                key={t.slug}
+                                href={`/admin/knowledge/templates/${t.slug}`}
+                                download
+                                className="flex items-center gap-2 rounded-md border border-hairline bg-surface-card px-3 py-2 text-sm transition-colors hover:border-accent"
+                            >
+                                <Download className="h-4 w-4 shrink-0 text-muted" />
+                                <span>
+                                    <span className="font-medium">{t.label}</span>
+                                    <span className="mt-0.5 block text-xs text-muted">{t.description}</span>
+                                </span>
+                            </a>
+                        ))}
+                    </div>
+                </div>
 
                 {tab === 'upload' && (
                     <form onSubmit={submitUpload} className="space-y-4 rounded-lg border border-hairline bg-surface-card p-6">

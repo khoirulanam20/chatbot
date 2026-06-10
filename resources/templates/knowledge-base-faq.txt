@@ -1,0 +1,81 @@
+DOKUMEN: FAQ [Nama Brand]
+PERUSAHAAN: [Nama Brand]
+VERSI: 1.0
+TERAKHIR DIPERBARUI: [YYYY-MM-DD]
+KONTAK: [email] | [telepon/WA]
+RINGKASAN: Pertanyaan umum pelanggan [Nama Brand] beserta jawaban resmi.
+KATA KUNCI: FAQ, tanya jawab, pertanyaan umum, bantuan, [brand]
+
+## FAQ — Cara Memesan
+
+PERTANYAAN UMUM: Bagaimana cara memesan di [Nama Brand]?
+JAWABAN: Pemesanan di [Nama Brand] dilakukan melalui [channel: website/WA/toko].
+DETAIL:
+- Langkah 1: [pilih produk / hubungi WA]
+- Langkah 2: [konfirmasi pesanan & alamat]
+- Langkah 3: [bayar sesuai metode yang tersedia]
+- Langkah 4: [tunggu konfirmasi & pengiriman]
+CATATAN: Pesanan di luar jam operasional diproses hari kerja berikutnya.
+KATA KUNCI: cara order, cara beli, memesan, checkout
+
+## FAQ — Status Pesanan
+
+PERTANYAAN UMUM: Bagaimana cara cek status pesanan saya?
+JAWABAN: Status pesanan [Nama Brand] dapat dicek dengan nomor pesanan melalui [cara/URL/WA].
+DETAIL:
+- Nomor pesanan dikirim via [email/WA] setelah pembayaran dikonfirmasi
+- Status: Menunggu pembayaran, Diproses, Dikirim, Selesai
+- Jika status tidak berubah lebih dari [X hari], hubungi [kontak]
+KATA KUNCI: cek pesanan, lacak order, status pengiriman, nomor resi
+
+## FAQ — Pembayaran Gagal
+
+PERTANYAAN UMUM: Pembayaran saya gagal, apa yang harus dilakukan?
+JAWABAN: Jika pembayaran gagal di [Nama Brand], ulangi pembayaran atau gunakan metode lain yang tersedia.
+DETAIL:
+- Pastikan saldo/nominal transfer sesuai tagihan
+- Simpan bukti transfer jika menggunakan transfer manual
+- Hubungi [kontak] dengan nomor pesanan dan bukti bayar
+CATATAN: Dana yang terpotong tetapi pesanan belum terkonfirmasi akan diverifikasi dalam [X jam kerja].
+KATA KUNCI: bayar gagal, transfer tidak masuk, double payment, pembayaran pending
+
+## FAQ — Produk Habis / Pre-order
+
+PERTANYAAN UMUM: Produk yang saya cari habis, apakah bisa pre-order?
+JAWABAN: [Nama Brand] [menerima/tidak menerima] pre-order untuk produk habis.
+DETAIL:
+- Produk yang bisa pre-order: [daftar atau "tidak ada"]
+- Estimasi stok masuk: [X hari/minggu] jika tersedia
+- Cara pre-order: [langkah]
+CATATAN: Pre-order dapat dibatalkan sebelum barang dikirim dengan menghubungi [kontak].
+KATA KUNCI: stok habis, sold out, pre order, kapan restock
+
+## FAQ — Garansi Produk
+
+PERTANYAAN UMUM: Apakah produk [Nama Brand] bergaransi?
+JAWABAN: Produk [Nama Brand] bergaransi [X bulan/tahun] untuk [cakupan garansi].
+DETAIL:
+- Garansi mencakup: [kerusakan pabrik, komponen tertentu, dll]
+- Garansi tidak mencakup: [kerusakan akibat pemakaian, modifikasi, dll]
+- Klaim garansi: hubungi [kontak] dengan bukti pembelian
+KATA KUNCI: garansi, warranty, klaim garansi, rusak
+
+## FAQ — Akun & Data Pribadi
+
+PERTANYAAN UMUM: Bagaimana [Nama Brand] melindungi data pribadi saya?
+JAWABAN: [Nama Brand] menggunakan data pelanggan hanya untuk pemrosesan pesanan dan layanan pelanggan.
+DETAIL:
+- Data yang dikumpulkan: [nama, alamat, telepon, email]
+- Data tidak dijual ke pihak ketiga
+- Permintaan hapus data: email ke [email privasi]
+KATA KUNCI: privasi, data pribadi, keamanan data, hapus akun
+
+## FAQ — Hubungi Customer Service
+
+PERTANYAAN UMUM: Bagaimana cara menghubungi customer service [Nama Brand]?
+JAWABAN: Customer service [Nama Brand] dapat dihubungi melalui [WA/email/telepon].
+DETAIL:
+- WhatsApp: [nomor] (jam [X-Y])
+- Email: [email] (respon dalam [X jam kerja])
+- Telepon: [nomor] (jam [X-Y])
+KATA KUNCI: hubungi CS, customer service, bantuan, komplain, kontak

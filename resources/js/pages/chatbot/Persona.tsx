@@ -1,7 +1,7 @@
 import { FormEventHandler, useMemo, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { getCsrfToken } from '@/lib/csrf';
-import { Loader2, Sparkles, Trash2 } from 'lucide-react';
+import { Download, Loader2, Sparkles, Trash2 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ChatbotSubNav } from '@/components/ChatbotSubNav';
 import { Button } from '@/components/ui/button';
@@ -353,6 +353,28 @@ export default function Persona({
                     <p className="mt-1 text-sm text-muted">
                         Atur karakter AI. Prompt efektif digabung otomatis untuk RAG.
                     </p>
+
+                    <div className="mt-4 rounded-lg border border-hairline bg-surface-soft p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h2 className="text-sm font-semibold">Tips menyusun persona</h2>
+                                <ul className="mt-2 space-y-1 text-xs text-muted">
+                                    <li>1. Isi Knowledge Base dulu — persona tanpa KB tidak punya fakta</li>
+                                    <li>2. Peran spesifik: sebut brand & domain bantuan (produk, order, teknis)</li>
+                                    <li>3. Instruksi: &quot;Jawab hanya dari KB&quot; + arahkan ke kontak jika tidak tahu</li>
+                                    <li>4. Larangan: jangan mengarang harga, promo, atau kebijakan</li>
+                                    <li>5. Uji 10 pertanyaan nyata setelah simpan (termasuk di luar KB)</li>
+                                </ul>
+                            </div>
+                            <Button variant="outline" size="sm" asChild>
+                                <a href="/admin/knowledge/persona-guide" download>
+                                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                                    Panduan persona
+                                </a>
+                            </Button>
+                        </div>
+                    </div>
+
                     {uses_legacy_prompt && (
                         <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
                             Chatbot ini masih memakai system prompt lama. Isi persona di bawah lalu simpan untuk

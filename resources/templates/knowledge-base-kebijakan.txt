@@ -1,0 +1,91 @@
+DOKUMEN: Kebijakan & SOP [Nama Brand]
+PERUSAHAAN: [Nama Brand]
+VERSI: 1.0
+TERAKHIR DIPERBARUI: [YYYY-MM-DD]
+BERLAKU SEJAK: [YYYY-MM-DD]
+KONTAK: [email] | [telepon/WA]
+RINGKASAN: Kebijakan resmi, prosedur operasional, dan standar layanan [Nama Brand].
+KATA KUNCI: kebijakan, SOP, prosedur, aturan, ketentuan, [brand]
+
+## Kebijakan — Retur & Pengembalian Dana
+
+PERTANYAAN UMUM: Apa kebijakan retur [Nama Brand]?
+JAWABAN: [Nama Brand] menerima retur dalam [X hari] kalender sejak barang diterima jika memenuhi syarat.
+DETAIL:
+- Syarat retur: produk belum dipakai, kemasan utuh, ada bukti pembelian
+- Produk tidak dapat diretur: [barang custom, produk kedaluwarsa, dll]
+- Proses: Ajukan via [kontak/WA/form] → verifikasi → kirim barang → refund dalam [X hari kerja]
+- Refund ke: rekening/e-wallet asal pembayaran
+CATATAN: Kebijakan ini berlaku sejak [tanggal]. Versi sebelumnya tidak berlaku.
+KATA KUNCI: kebijakan retur, refund, pengembalian, tukar barang
+
+## Kebijakan — Pengiriman & Risiko
+
+PERTANYAAN UMUM: Siapa yang bertanggung jawab jika paket rusak atau hilang?
+JAWABAN: Jika paket rusak atau hilang saat pengiriman, [Nama Brand] akan [ganti barang/refund/klaim ke kurir] sesuai ketentuan.
+DETAIL:
+- Jika rusak saat terima: laporkan dalam [X jam] dengan foto/video unboxing
+- Jika hilang: tunggu [X hari] tracking, lalu ajukan klaim ke [kontak]
+- Jika alamat salah karena kesalahan pelanggan: ongkir ulang ditanggung pelanggan
+CATATAN: Klaim tidak diproses tanpa bukti foto/video untuk kerusakan.
+KATA KUNCI: paket rusak, paket hilang, klaim pengiriman, barang pecah
+
+## SOP — Penanganan Komplain Pelanggan
+
+PERTANYAAN UMUM: Bagaimana [Nama Brand] menangani komplain pelanggan?
+JAWABAN: Komplain pelanggan [Nama Brand] ditangani dalam [X jam kerja] pertama setelah diterima.
+DETAIL:
+- Langkah 1: Terima komplain via [WA/email/form] dan catat nomor tiket
+- Langkah 2: Verifikasi data pesanan dan bukti
+- Langkah 3: Tawarkan solusi: [penggantian/refund/voucher/dll]
+- Langkah 4: Follow-up dalam [X hari] hingga komplain selesai
+CATATAN: Komplain formal yang tidak terselesaikan dapat dieskalasi ke [email manajemen].
+KATA KUNCI: komplain, keluhan, tiket, penanganan masalah, eskalasi
+
+## SOP — Verifikasi Pembayaran Manual
+
+PERTANYAAN UMUM: Bagaimana prosedur verifikasi transfer manual di [Nama Brand]?
+JAWABAN: Transfer manual [Nama Brand] diverifikasi dalam [X jam kerja] setelah bukti diterima.
+DETAIL:
+- Pelanggan transfer ke rekening [bank, no rekening, atas nama]
+- Kirim bukti ke [WA/email] dengan nomor pesanan
+- Admin verifikasi nominal dan rekening pengirim
+- Jika sesuai: status pesanan berubah ke "Diproses"
+- Jika tidak sesuai: pelanggan dihubungi untuk koreksi
+CATATAN: Pembayaran kurang dari tagihan tidak diproses hingga dilunasi.
+KATA KUNCI: verifikasi transfer, konfirmasi pembayaran, bukti transfer
+
+## Kebijakan — Privasi & Data Pelanggan
+
+PERTANYAAN UMUM: Bagaimana [Nama Brand] mengelola data pelanggan?
+JAWABAN: [Nama Brand] mengumpulkan data hanya untuk transaksi, pengiriman, dan layanan pelanggan.
+DETAIL:
+- Data dikumpulkan: nama, alamat, telepon, email, riwayat pesanan
+- Data disimpan selama [X tahun] atau sesuai ketentuan hukum
+- Data tidak dijual ke pihak ketiga tanpa persetujuan
+- Permintaan akses/hapus data: email [email privasi], diproses dalam [X hari kerja]
+CATATAN: Kebijakan privasi berlaku sejak [tanggal]. Lihat [URL kebijakan privasi lengkap].
+KATA KUNCI: privasi, data pribadi, GDPR, hapus data, kebijakan privasi
+
+## SOP — Eskalasi ke Supervisor
+
+PERTANYAAN UMUM: Kapan masalah pelanggan harus dieskalasi ke supervisor?
+JAWABAN: Masalah dieskalasi ke supervisor [Nama Brand] jika belum selesai dalam [X hari] atau melibatkan [refund besar/keluhan berulang/dll].
+DETAIL:
+- Kriteria eskalasi: nilai transaksi di atas Rp [angka], komplain ke-2 untuk masalah sama, ancaman legal
+- Cara eskalasi: agen buat tiket eskalasi di [sistem] atau email [supervisor@email]
+- SLA supervisor: respon dalam [X jam kerja]
+CATATAN: Semua eskalasi harus disertai nomor pesanan dan ringkasan percakapan.
+KATA KUNCI: eskalasi, supervisor, manajer, keluhan serius, tiket eskalasi
+
+## Definisi Istilah Internal
+
+PERTANYAAN UMUM: Apa arti istilah yang dipakai [Nama Brand]?
+JAWABAN: Berikut definisi istilah resmi yang dipakai [Nama Brand] dalam layanan pelanggan.
+DETAIL:
+- Pesanan Diproses: Pembayaran sudah dikonfirmasi, barang sedang disiapkan
+- Pesanan Dikirim: Barang sudah diserahkan ke kurir, nomor resi tersedia
+- Pre-order: Pemesanan barang yang belum tersedia stok
+- Garansi: Perlindungan kerusakan sesuai ketentuan pabrik/distribusi
+CATATAN: Gunakan istilah ini secara konsisten di semua kanal komunikasi.
+KATA KUNCI: arti istilah, definisi, status pesanan, glosarium

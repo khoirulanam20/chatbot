@@ -1,0 +1,78 @@
+DOKUMEN: Katalog Produk [Nama Brand]
+PERUSAHAAN: [Nama Brand]
+VERSI: 1.0
+TERAKHIR DIPERBARUI: [YYYY-MM-DD]
+KONTAK: [email] | [telepon/WA]
+RINGKASAN: Daftar produk/layanan resmi [Nama Brand] beserta harga, spesifikasi, dan cara pembelian.
+KATA KUNCI: produk, katalog, harga, beli, [kategori utama], [brand]
+
+## Produk — [Nama Produk / SKU-001]
+
+PERTANYAAN UMUM: Apa itu [Nama Produk] dan berapa harganya?
+JAWABAN: [Nama Produk] adalah [deskripsi singkat]. Harga Rp [angka] per [satuan] (per [tanggal]).
+DETAIL:
+- SKU/Kode: [SKU-001]
+- Kategori: [kategori]
+- Spesifikasi: [spesifikasi 1], [spesifikasi 2], [spesifikasi 3]
+- Varian: [warna/ukuran/paket yang tersedia]
+- Stok: [tersedia/terbatas/habis]
+- URL pembelian: [URL]
+CATATAN: Harga belum termasuk ongkir. Promo berlaku sesuai syarat di halaman produk.
+KATA KUNCI: [nama produk], harga [produk], beli [produk], spesifikasi [produk]
+
+## Produk — [Nama Produk / SKU-002]
+
+PERTANYAAN UMUM: Apa perbedaan [Nama Produk] dengan [Produk Lain]?
+JAWABAN: [Nama Produk] [perbedaan utama]. [Produk Lain] [perbedaan utama].
+DETAIL:
+- [Nama Produk]: Harga Rp [angka], cocok untuk [use case]
+- [Produk Lain]: Harga Rp [angka], cocok untuk [use case]
+- Rekomendasi: Pilih [Nama Produk] jika [kondisi]; pilih [Produk Lain] jika [kondisi]
+CATATAN: Perbandingan berdasarkan spesifikasi resmi per [tanggal].
+KATA KUNCI: perbandingan, beda [produk], mana yang lebih baik, rekomendasi produk
+
+## Produk — Paket / Bundle [Nama Paket]
+
+PERTANYAAN UMUM: Apa isi paket [Nama Paket] dan berapa harganya?
+JAWABAN: Paket [Nama Paket] berisi [item 1], [item 2], [item 3] dengan harga Rp [angka].
+DETAIL:
+- Harga normal jika dibeli terpisah: Rp [angka]
+- Hemat: Rp [angka] dibanding beli satuan
+- Masa berlaku promo paket: [tanggal mulai] s/d [tanggal akhir]
+- URL pembelian: [URL]
+CATATAN: Paket tidak dapat dipecah. Stok paket mengikuti ketersediaan komponen.
+KATA KUNCI: paket, bundle, promo paket, hemat, [nama paket]
+
+## Layanan — [Nama Layanan]
+
+PERTANYAAN UMUM: Apa itu layanan [Nama Layanan] di [Nama Brand]?
+JAWABAN: Layanan [Nama Layanan] adalah [deskripsi]. Harga mulai Rp [angka] / [satuan].
+DETAIL:
+- Durasi: [X jam/hari]
+- Cakupan: [apa saja yang termasuk]
+- Cara pemesanan: [langkah]
+- Area layanan: [wilayah]
+CATATAN: Biaya tambahan berlaku untuk [kondisi khusus].
+KATA KUNCI: layanan [nama], jasa [nama], harga layanan, booking [layanan]
+
+## Promo & Diskon Aktif
+
+PERTANYAAN UMUM: Promo apa yang sedang berjalan di [Nama Brand]?
+JAWABAN: Promo aktif [Nama Brand] per [tanggal]: [nama promo 1], [nama promo 2].
+DETAIL:
+- [Nama Promo 1]: Diskon [X%] / potongan Rp [angka] untuk [produk/kategori], periode [tanggal]
+- [Nama Promo 2]: Gratis ongkir untuk min. belanja Rp [angka], periode [tanggal]
+- Syarat umum: [tidak digabung promo lain / maks 1x per user / dll]
+CATATAN: Promo dapat berubah tanpa pemberitahuan. Konfirmasi terbaru via [kontak].
+KATA KUNCI: promo, diskon, sale, potongan harga, gratis ongkir
+
+## Cara Membeli Produk
+
+PERTANYAAN UMUM: Bagaimana cara membeli produk di [Nama Brand]?
+JAWABAN: Pembelian produk [Nama Brand] dapat dilakukan melalui [website/WA/marketplace].
+DETAIL:
+- Website: [URL] → pilih produk → checkout → bayar
+- WhatsApp: kirim pesan ke [nomor] dengan nama produk & jumlah
+- Marketplace: [Tokopedia/Shopee/dll] — cari toko resmi [Nama Brand]
+CATATAN: Harga di marketplace dapat berbeda karena biaya platform.
+KATA KUNCI: cara beli, order, checkout, toko resmi, marketplace

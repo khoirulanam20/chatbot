@@ -1,0 +1,71 @@
+DOKUMEN: Panduan Layanan [Nama Brand]
+PERUSAHAAN: [Nama Brand]
+VERSI: 1.0
+TERAKHIR DIPERBARUI: [YYYY-MM-DD]
+KONTAK: [email] | [telepon/WA]
+RINGKASAN: Informasi resmi tentang produk, layanan, dan kebijakan [Nama Brand].
+KATA KUNCI: [brand], [produk utama], [layanan], kontak, jam operasional
+
+## Tentang Perusahaan
+
+PERTANYAAN UMUM: Apa itu [Nama Brand] dan layanan utamanya?
+JAWABAN: [Nama Brand] adalah [deskripsi 1 kalimat]. Layanan utama: [A], [B], [C].
+DETAIL:
+- Alamat: [alamat lengkap]
+- Jam operasional: [hari & jam, contoh Senin-Jumat 09.00-17.00 WIB]
+- Website: [URL]
+KATA KUNCI: tentang kami, profil perusahaan, siapa [brand]
+
+## Produk / Layanan — [Nama Produk 1]
+
+PERTANYAAN UMUM: Apa itu [Nama Produk 1] dan untuk siapa?
+JAWABAN: [Nama Produk 1] adalah [deskripsi]. Cocok untuk [target pengguna].
+DETAIL:
+- Fitur utama: [fitur 1], [fitur 2]
+- Harga: Rp [angka] / [satuan] (berlaku per [tanggal])
+- Cara pemesanan: [langkah singkat]
+- Yang tidak termasuk: [pengecualian]
+CATATAN: Harga dapat berubah; konfirmasi terbaru via [kontak].
+KATA KUNCI: harga [produk], beli [produk], fitur [produk]
+
+## Pembayaran
+
+PERTANYAAN UMUM: Metode pembayaran apa yang diterima [Nama Brand]?
+JAWABAN: [Nama Brand] menerima [metode 1], [metode 2], [metode 3].
+DETAIL:
+- Transfer bank: [nama bank, no rekening, atas nama]
+- E-wallet: [daftar]
+- Cicilan: [ada/tidak, syarat]
+CATATAN: Pembayaran di luar metode di atas tidak dapat diproses.
+KATA KUNCI: bayar, transfer, QRIS, invoice, cara pembayaran
+
+## Pengiriman
+
+PERTANYAAN UMUM: Berapa lama pengiriman dan ke mana saja?
+JAWABAN: Pengiriman ke [wilayah] memakan [X-Y hari kerja] setelah pembayaran dikonfirmasi.
+DETAIL:
+- Ongkir: Rp [angka] untuk [wilayah]; gratis ongkir jika [syarat]
+- Kurir: [nama kurir]
+- Lacak pesanan: [cara/URL]
+KATA KUNCI: ongkir, shipping, estimasi kirim, resi, biaya pengiriman
+
+## Kebijakan Retur & Refund
+
+PERTANYAAN UMUM: Apakah bisa retur atau refund di [Nama Brand]?
+JAWABAN: Retur/refund dapat diajukan dalam [X hari] jika [syarat].
+DETAIL:
+- Syarat: [kondisi produk, bukti, alasan]
+- Proses: [langkah 1], [langkah 2], [langkah 3]
+- Waktu refund: [X hari kerja] ke rekening asal
+CATATAN: [produk/kategori] tidak dapat diretur karena [alasan].
+KATA KUNCI: retur, refund, pengembalian dana, garansi, tukar barang
+
+## Eskalasi ke Agen Manusia
+
+PERTANYAAN UMUM: Kapan saya harus bicara dengan agen [Nama Brand]?
+JAWABAN: Hubungi agen jika masalah belum terselesaikan di sini, butuh verifikasi akun, atau keluhan formal.
+DETAIL:
+- WhatsApp agen: [nomor]
+- Email: [email]
+- Jam layanan agen: [jam]
+KATA KUNCI: customer service, CS, komplain, bicara orang, hubungi admin

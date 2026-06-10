@@ -73,6 +73,9 @@ Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () 
     });
 
     Route::get('/knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
+    Route::get('/knowledge/guide', [KnowledgeController::class, 'downloadKnowledgeGuide'])->name('knowledge.guide');
+    Route::get('/knowledge/persona-guide', [KnowledgeController::class, 'downloadPersonaGuide'])->name('persona.guide');
+    Route::get('/knowledge/templates/{template}', [KnowledgeController::class, 'downloadTemplate'])->name('knowledge.templates');
     Route::get('/knowledge/{document}', [KnowledgeController::class, 'show'])->name('knowledge.show');
 
     Route::middleware('super_admin')->group(function () {
