@@ -10,7 +10,6 @@ use App\Services\ChatImageService;
 use App\Services\RAGService;
 use App\Services\TakeoverNotificationService;
 use App\Services\WaChateryService;
-use App\Support\DebugWaTrace;
 use App\Services\WaConversationResolver;
 use App\Services\WaOutboundService;
 use Illuminate\Bus\Queueable;
@@ -66,25 +65,10 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             'type'           => $type,
         ]);
 
-        // #region agent log
-        DebugWaTrace::log('H4', 'ProcessWhatsAppMessageJob.php:handle', 'job_handle_started', [
-            'wa_instance_id' => $this->waInstanceId,
-            'message_id'     => $messageId,
-            'queue'          => $this->queue ?? 'default',
-        ]);
-        // #endregion
-
         $waInstance = WaInstance::withoutGlobalScopes()->find($this->waInstanceId);
 
         if (! $waInstance || ! $waInstance->chatbot) {
             Log::warning('WA instance not found', ['id' => $this->waInstanceId]);
-
-            // #region agent log
-            DebugWaTrace::log('H3', 'ProcessWhatsAppMessageJob.php:handle', 'job_abort_no_instance', [
-                'wa_instance_id' => $this->waInstanceId,
-                'found'          => (bool) $waInstance,
-            ]);
-            // #endregion
 
             return;
         }
@@ -148,16 +132,6 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
         try {
             $conversation->loadMissing('chatbot');
             $conversation = $agentSession->prepareForInbound($conversation);
-
-            // #region agent log
-            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'inbound_ai_check', [
-                'conversation_id' => $conversation->id,
-                'is_ai_active'    => $conversation->is_ai_active,
-                'status'          => $conversation->status,
-                'is_ai_blocked'   => $agentSession->isAiBlocked($conversation),
-                'from'            => $from,
-            ]);
-            // #endregion
 
             if ($agentSession->isAiBlocked($conversation)) {
                 $this->handleHandoffInbound(
@@ -244,15 +218,6 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
             $chunks   = $result['chunks'] ?? [$result['content']];
             $humanize = $chatbot->isHumanizeEnabledFor('whatsapp');
 
-            // #region agent log
-            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'ai_reply_sending', [
-                'conversation_id' => $conversation->id,
-                'is_ai_active'    => $conversation->is_ai_active,
-                'status'          => $conversation->status,
-                'chunk_count'     => count($chunks),
-            ]);
-            // #endregion
-
             Log::info('WA job sending reply', [
                 'conversation_id' => $conversation->id,
                 'is_ai_active'    => $conversation->is_ai_active,
@@ -276,17 +241,8 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
                     'from'            => $from,
                 ]);
 
-                DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_outbound_failed', [
-                    'conversation_id' => $conversation->id,
-                ]);
-
                 throw new RuntimeException('WA outbound send failed');
             }
-
-            DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_completed_ok', [
-                'conversation_id' => $conversation->id,
-                'message_id'      => $messageId,
-            ]);
 
             Log::info('WA job completed', [
                 'conversation_id' => $conversation->id,
@@ -307,11 +263,6 @@ class ProcessWhatsAppMessageJob implements ShouldQueue, ShouldBeUnique
         int $waInstanceId,
         ?string $messageId
     ): void {
-        DebugWaTrace::log('H5', 'ProcessWhatsAppMessageJob.php:handle', 'job_handoff_blocked', [
-            'conversation_id' => $conversation->id,
-            'status'          => $conversation->status,
-        ]);
-
         Message::create([
             'conversation_id' => $conversation->id,
             'role'            => 'user',

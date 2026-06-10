@@ -128,15 +128,15 @@ export default function ChatbotEdit({ chatbot }: Props) {
                                 checked={data.pause_ai_on_human_reply}
                                 onChange={(e) => setData('pause_ai_on_human_reply', e.target.checked)}
                             />
-                            Pause AI saat admin membalas (panel atau WhatsApp)
+                            Pause AI saat admin membalas dari panel
                         </label>
                         <p className="text-sm text-muted">
-                            Jika aktif, AI berhenti membalas setelah admin ikut chat. AI aktif kembali setelah
-                            tidak ada pesan baru selama durasi idle di bawah.
+                            Jika aktif, AI berhenti membalas setelah admin membalas lewat panel percakapan.
+                            AI aktif kembali setelah tidak ada pesan baru selama durasi idle di bawah.
                         </p>
                         <p className="text-xs text-muted">
-                            Keyword takeover di bawah selalu mem-pause AI. Toggle di atas hanya mengatur pause
-                            otomatis saat admin membalas (panel atau WhatsApp).
+                            Tidak berlaku jika admin membalas langsung dari aplikasi WhatsApp di HP.
+                            Untuk handoff dari HP, gunakan Take Over di panel atau minta customer ketik keyword takeover.
                         </p>
                         <div>
                             <Label>Keyword takeover</Label>
@@ -162,7 +162,7 @@ export default function ChatbotEdit({ chatbot }: Props) {
                                         className="mt-1"
                                     />
                                     <p className="mt-1 text-xs text-muted">
-                                        Berlaku untuk balasan dari panel admin maupun WhatsApp langsung.
+                                        Berlaku untuk balasan teks/gambar dari panel admin.
                                     </p>
                                 </div>
                             </div>

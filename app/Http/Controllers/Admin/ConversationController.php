@@ -167,6 +167,26 @@ class ConversationController extends Controller
 
         $this->agentSession->touchActivity($conversation);
 
+        if ($conversation->channel === 'whatsapp') {
+            $conversation->loadMissing(['chatbot.waInstance', 'contact']);
+            $waInstance = $conversation->chatbot->waInstance;
+            if ($waInstance && $conversation->contact) {
+                $outboundChatId = app(WaConversationResolver::class)
+                    ->resolveOutboundChatId($conversation->contact);
+
+                $sent = app(WaOutboundService::class)->sendImage(
+                    $waInstance,
+                    $outboundChatId,
+                    ChatImageService::publicAbsoluteUrl($stored['url']),
+                    $caption !== '[Gambar]' ? $caption : null
+                );
+
+                if (! $sent) {
+                    return back()->withErrors(['image' => 'Gagal mengirim gambar ke WhatsApp. Coba lagi.']);
+                }
+            }
+        }
+
         return back()->with('success', 'Gambar terkirim.');
     }
 

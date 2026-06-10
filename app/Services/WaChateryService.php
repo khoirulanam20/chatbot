@@ -78,6 +78,61 @@ class WaChateryService
     }
 
     /**
+     * @return array{success: bool, message_id: ?string}
+     */
+    public function sendImage(
+        string $apiKey,
+        string $to,
+        string $imageUrl,
+        ?string $caption = null,
+        string $sessionId = 'default'
+    ): array {
+        try {
+            $payload = [
+                'sessionId' => $sessionId,
+                'chatId'    => $this->normalizeChatId($to),
+                'imageUrl'  => $imageUrl,
+            ];
+
+            if ($caption !== null && $caption !== '' && $caption !== '[Gambar]') {
+                $payload['caption'] = $caption;
+            }
+
+            $response = Http::withHeaders([
+                'X-Api-Key'    => $apiKey,
+                'Content-Type' => 'application/json',
+            ])
+                ->baseUrl($this->baseUrl)
+                ->timeout(30)
+                ->post('whatsapp/chats/send-image', $payload);
+
+            if ($response->failed()) {
+                Log::error('WA Chatery send image failed', [
+                    'to'     => $to,
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+
+                return ['success' => false, 'message_id' => null];
+            }
+
+            $messageId = $response->json('data.id')
+                ?? $response->json('data.messageId')
+                ?? $response->json('messageId')
+                ?? $response->json('id');
+
+            return [
+                'success'    => true,
+                'message_id' => is_string($messageId) ? $messageId : null,
+            ];
+        } catch (\Exception $e) {
+            Log::error('WA Chatery send image exception', ['message' => $e->getMessage()]);
+
+            return ['success' => false, 'message_id' => null];
+        }
+    }
+
+    /**
      * @return array{success: bool, status: ?string, phone: ?string, is_connected: bool, error?: string}
      */
     public function getSessionStatus(string $apiKey, string $sessionId = 'default'): array

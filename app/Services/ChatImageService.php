@@ -95,4 +95,13 @@ class ChatImageService
             'mime' => 'image/webp',
         ];
     }
+
+    public static function publicAbsoluteUrl(string $relativeUrl): string
+    {
+        if (str_starts_with($relativeUrl, 'http://') || str_starts_with($relativeUrl, 'https://')) {
+            return $relativeUrl;
+        }
+
+        return url($relativeUrl);
+    }
 }

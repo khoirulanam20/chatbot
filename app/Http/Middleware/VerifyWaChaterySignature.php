@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\DebugWaTrace;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,22 +13,10 @@ class VerifyWaChaterySignature
     {
         $secret = config('services.chatery.webhook_secret');
 
-        // #region agent log
-        DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'middleware_entry', [
-            'env'           => app()->environment(),
-            'secret_set'    => ! empty($secret),
-            'has_signature' => $request->hasHeader('X-Chatery-Signature'),
-        ]);
-        // #endregion
-
         // Secret kosong = skip verifikasi (Chatery belum kirim X-Chatery-Signature).
         // Set CHATERY_WEBHOOK_SECRET + header signature di Chatery untuk mengaktifkan HMAC.
         if (empty($secret)) {
             Log::warning('WA webhook: signature verification disabled (CHATERY_WEBHOOK_SECRET empty)');
-
-            // #region agent log
-            DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'allowed_no_secret', [], 'post-fix');
-            // #endregion
 
             return $next($request);
         }
@@ -38,10 +25,6 @@ class VerifyWaChaterySignature
 
         if (! $signature) {
             Log::warning('WA webhook rejected: missing X-Chatery-Signature header');
-
-            // #region agent log
-            DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'rejected_missing_signature');
-            // #endregion
 
             return response()->json(['error' => 'Missing signature'], 401);
         }
@@ -52,16 +35,8 @@ class VerifyWaChaterySignature
         if (! hash_equals($expected, $signature)) {
             Log::warning('WA webhook rejected: invalid signature');
 
-            // #region agent log
-            DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'rejected_invalid_signature');
-            // #endregion
-
             return response()->json(['error' => 'Invalid signature'], 401);
         }
-
-        // #region agent log
-        DebugWaTrace::log('H1', 'VerifyWaChaterySignature.php:handle', 'signature_ok');
-        // #endregion
 
         return $next($request);
     }

@@ -84,7 +84,7 @@ class WaWebhookAgentReplyTest extends TestCase
         Queue::assertNotPushed(ProcessWhatsAppMessageJob::class);
     }
 
-    public function test_agent_reply_job_pauses_ai_and_saves_message(): void
+    public function test_agent_reply_job_saves_message_without_pausing_ai(): void
     {
         config(['services.chatery.webhook_secret' => null]);
 
@@ -119,8 +119,8 @@ class WaWebhookAgentReplyTest extends TestCase
 
         $conversation->refresh();
 
-        $this->assertFalse($conversation->is_ai_active);
-        $this->assertSame('handoff', $conversation->status);
+        $this->assertTrue($conversation->is_ai_active);
+        $this->assertSame('open', $conversation->status);
         $this->assertDatabaseHas('messages', [
             'conversation_id' => $conversation->id,
             'role'            => 'agent',
@@ -155,57 +155,7 @@ class WaWebhookAgentReplyTest extends TestCase
         Queue::assertNothingPushed();
     }
 
-    public function test_agent_reply_does_not_pause_ai_when_toggle_disabled(): void
-    {
-        config(['services.chatery.webhook_secret' => null]);
-
-        ['chatbot' => $chatbot, 'wa' => $wa] = $this->createWaSetup();
-
-        $chatbot->update([
-            'settings' => array_merge($chatbot->settings ?? [], [
-                'pause_ai_on_human_reply' => false,
-            ]),
-        ]);
-
-        $contact = Contact::withoutGlobalScopes()->create([
-            'tenant_id'  => $chatbot->tenant_id,
-            'identifier' => '628987654321',
-            'channel'    => 'whatsapp',
-        ]);
-
-        $conversation = Conversation::create([
-            'chatbot_id'      => $chatbot->id,
-            'contact_id'      => $contact->id,
-            'channel'         => 'whatsapp',
-            'status'          => 'open',
-            'is_ai_active'    => true,
-            'last_message_at' => now(),
-        ]);
-
-        $job = new ProcessWhatsAppAgentReplyJob([
-            'customer_id' => '628987654321@s.whatsapp.net',
-            'message'     => 'Balasan admin',
-            'message_id'  => 'agent-msg-disabled',
-            'type'        => 'text',
-        ], $wa->id);
-
-        $job->handle(
-            app(\App\Services\AgentSessionService::class),
-            app(\App\Services\WaConversationResolver::class)
-        );
-
-        $conversation->refresh();
-
-        $this->assertTrue($conversation->is_ai_active);
-        $this->assertSame('open', $conversation->status);
-        $this->assertDatabaseHas('messages', [
-            'conversation_id' => $conversation->id,
-            'role'            => 'agent',
-            'content'         => 'Balasan admin',
-        ]);
-    }
-
-    public function test_from_me_with_content_hash_echo_still_pauses_ai(): void
+    public function test_from_me_with_content_hash_echo_still_queues_agent_reply(): void
     {
         config(['services.chatery.webhook_secret' => null]);
 
@@ -249,8 +199,8 @@ class WaWebhookAgentReplyTest extends TestCase
 
         $conversation->refresh();
 
-        $this->assertFalse($conversation->is_ai_active);
-        $this->assertSame('handoff', $conversation->status);
+        $this->assertTrue($conversation->is_ai_active);
+        $this->assertSame('open', $conversation->status);
     }
 
     public function test_outbound_echo_detection_by_content_hash(): void

@@ -62,12 +62,7 @@ class ProcessWhatsAppAgentReplyJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        if (WaOutboundService::isOutboundEcho(
-            $waInstance->id,
-            $messageId,
-            $customerId,
-            $message
-        )) {
+        if (WaOutboundService::isOutboundMessageIdEcho($waInstance->id, $messageId)) {
             Log::info('WA agent reply job skipped: outbound echo', [
                 'wa_instance_id' => $waInstance->id,
                 'message_id'     => $messageId,
@@ -92,10 +87,6 @@ class ProcessWhatsAppAgentReplyJob implements ShouldQueue, ShouldBeUnique
         try {
             $conversation->refresh();
 
-            $paused = $agentSession->isInHandoff($conversation)
-                ? true
-                : $agentSession->pauseForHumanReply($conversation);
-
             $metadata = ['source' => 'whatsapp_direct'];
             if ($type === 'image') {
                 $metadata['type'] = 'image';
@@ -116,7 +107,6 @@ class ProcessWhatsAppAgentReplyJob implements ShouldQueue, ShouldBeUnique
             Log::info('WA agent reply processed', [
                 'conversation_id' => $conversation->id,
                 'wa_instance_id'  => $waInstance->id,
-                'ai_paused'       => $paused,
             ]);
         } finally {
             $lock->release();

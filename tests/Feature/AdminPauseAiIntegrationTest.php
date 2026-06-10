@@ -12,6 +12,7 @@ use App\Models\WaInstance;
 use App\Services\AgentSessionService;
 use App\Services\RAGService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Tests\Concerns\CreatesTestActors;
 use Tests\TestCase;
@@ -108,7 +109,7 @@ class AdminPauseAiIntegrationTest extends TestCase
         ]);
     }
 
-    public function test_wa_from_me_webhook_sync_pause_blocks_customer_inbound(): void
+    public function test_wa_from_me_webhook_does_not_pause_ai(): void
     {
         config(['services.chatery.webhook_secret' => null]);
 
@@ -130,8 +131,8 @@ class AdminPauseAiIntegrationTest extends TestCase
             ->assertJson(['status' => 'queued_agent_reply']);
 
         $conversation->refresh();
-        $this->assertFalse($conversation->is_ai_active);
-        $this->assertSame('handoff', $conversation->status);
+        $this->assertTrue($conversation->is_ai_active);
+        $this->assertSame('open', $conversation->status);
 
         $agentJob = new ProcessWhatsAppAgentReplyJob([
             'customer_id' => '628987654321@s.whatsapp.net',
@@ -145,31 +146,13 @@ class AdminPauseAiIntegrationTest extends TestCase
             app(\App\Services\WaConversationResolver::class)
         );
 
-        $rag = Mockery::mock(RAGService::class);
-        $rag->shouldNotReceive('processMessage');
-        $this->app->instance(RAGService::class, $rag);
-
-        $inboundJob = new ProcessWhatsAppMessageJob([
-            'from'       => '628987654321@s.whatsapp.net',
-            'message'    => 'Customer balas setelah admin',
-            'message_id' => 'customer-after-wa-admin-001',
-            'type'       => 'text',
-        ], $wa->id);
-
-        $inboundJob->handle(
-            app(RAGService::class),
-            app(\App\Services\WaOutboundService::class),
-            app(AgentSessionService::class),
-            app(\App\Services\TakeoverNotificationService::class),
-            app(\App\Services\ChatImageService::class),
-            app(\App\Services\WaChateryService::class),
-            app(\App\Services\WaConversationResolver::class),
-        );
-
+        $conversation->refresh();
+        $this->assertTrue($conversation->is_ai_active);
+        $this->assertSame('open', $conversation->status);
         $this->assertDatabaseHas('messages', [
             'conversation_id' => $conversation->id,
-            'role'            => 'user',
-            'content'         => 'Customer balas setelah admin',
+            'role'            => 'agent',
+            'content'         => 'Admin balas dari HP',
         ]);
     }
 
@@ -192,11 +175,13 @@ class AdminPauseAiIntegrationTest extends TestCase
         $this->assertSame('open', $conversation->status);
     }
 
-    public function test_wa_admin_reply_keeps_ai_paused_when_last_message_is_stale(): void
+    public function test_panel_reply_keeps_ai_paused_when_last_message_is_stale(): void
     {
-        config(['services.chatery.webhook_secret' => null]);
+        \Illuminate\Support\Facades\Http::fake([
+            '*' => \Illuminate\Support\Facades\Http::response(['data' => ['id' => 'panel-msg-001']], 200),
+        ]);
 
-        ['conversation' => $conversation, 'wa' => $wa, 'chatbot' => $chatbot] = $this->createWaContext();
+        ['admin' => $admin, 'conversation' => $conversation, 'wa' => $wa, 'chatbot' => $chatbot] = $this->createWaContext();
 
         $chatbot->update([
             'settings' => [
@@ -210,17 +195,11 @@ class AdminPauseAiIntegrationTest extends TestCase
             'last_message_at' => now()->subMinutes(5),
         ]);
 
-        $this->postJson('/api/webhook/whatsapp', [
-            'event'     => 'message',
-            'sessionId' => 'PauseTest',
-            'data'      => [
-                'type'    => 'text',
-                'fromMe'  => true,
-                'chatId'  => '628987654321@s.whatsapp.net',
-                'content' => 'Admin balas setelah jeda lama',
-                'id'      => 'agent-stale-last-msg-001',
-            ],
-        ])->assertOk()->assertJson(['status' => 'queued_agent_reply']);
+        $this->actingAs($admin)
+            ->post("/admin/conversations/{$conversation->id}/message", [
+                'message' => 'Admin balas dari panel setelah jeda lama',
+            ])
+            ->assertRedirect();
 
         $conversation->refresh();
         $this->assertFalse($conversation->is_ai_active);
@@ -276,6 +255,8 @@ class AdminPauseAiIntegrationTest extends TestCase
             'last_message_at' => now(),
         ]);
 
+        Queue::fake();
+
         $this->postJson('/api/webhook/whatsapp', [
             'event'     => 'message',
             'sessionId' => 'PauseTest',
@@ -289,28 +270,42 @@ class AdminPauseAiIntegrationTest extends TestCase
         ])->assertOk()->assertJson(['status' => 'queued_agent_reply']);
 
         $conversation->refresh();
-        $this->assertFalse($conversation->is_ai_active);
-        $this->assertSame('handoff', $conversation->status);
+        $this->assertTrue($conversation->is_ai_active);
+        $this->assertSame('open', $conversation->status);
+
+        $agentJob = new ProcessWhatsAppAgentReplyJob([
+            'customer_id' => $lidChatId,
+            'message'     => 'Admin balas via LID chat',
+            'message_id'  => 'agent-lid-001',
+            'type'        => 'text',
+        ], $wa->id);
+
+        $agentJob->handle(
+            app(AgentSessionService::class),
+            app(\App\Services\WaConversationResolver::class)
+        );
+
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role'            => 'agent',
+            'content'         => 'Admin balas via LID chat',
+        ]);
+
+        \Illuminate\Support\Facades\Http::fake([
+            '*' => \Illuminate\Support\Facades\Http::response(['data' => ['id' => 'ai-reply-lid-001']], 200),
+        ]);
 
         $rag = Mockery::mock(RAGService::class);
-        $rag->shouldNotReceive('processMessage');
-        $this->app->instance(RAGService::class, $rag);
-
-        $this->postJson('/api/webhook/whatsapp', [
-            'event'     => 'message',
-            'sessionId' => 'PauseTest',
-            'data'      => [
-                'type'        => 'text',
-                'fromMe'      => false,
-                'senderPhone' => '628987654321',
-                'chatId'      => $lidChatId,
-                'content'     => 'Customer balas setelah admin LID',
-                'id'          => 'customer-lid-001',
-            ],
-        ])->assertOk()->assertJson(['status' => 'queued']);
-
-        $rag = Mockery::mock(RAGService::class);
-        $rag->shouldNotReceive('processMessage');
+        $rag->shouldReceive('processMessage')
+            ->once()
+            ->with(
+                Mockery::on(fn ($conv) => $conv->id === $conversation->id),
+                'Customer balas setelah admin LID'
+            )
+            ->andReturn([
+                'content' => 'Balasan AI',
+                'chunks'  => ['Balasan AI'],
+            ]);
         $this->app->instance(RAGService::class, $rag);
 
         $inboundJob = new ProcessWhatsAppMessageJob([
@@ -329,12 +324,6 @@ class AdminPauseAiIntegrationTest extends TestCase
             app(\App\Services\WaChateryService::class),
             app(\App\Services\WaConversationResolver::class),
         );
-
-        $this->assertDatabaseHas('messages', [
-            'conversation_id' => $conversation->id,
-            'role'            => 'user',
-            'content'         => 'Customer balas setelah admin LID',
-        ]);
     }
 
     public function test_customer_inbound_prefers_chat_id_over_sender_phone(): void

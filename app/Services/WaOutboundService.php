@@ -48,6 +48,35 @@ class WaOutboundService
         return $result['success'];
     }
 
+    public function sendImage(
+        WaInstance $waInstance,
+        string $to,
+        string $imageUrl,
+        ?string $caption = null
+    ): bool {
+        $apiKey = $this->chatery->resolveApiKey($waInstance);
+
+        if (! filled($apiKey)) {
+            return false;
+        }
+
+        $sessionId = $waInstance->instance_id ?: 'default';
+
+        $result = $this->chatery->sendImage(
+            $apiKey,
+            $to,
+            $imageUrl,
+            $caption,
+            $sessionId
+        );
+
+        if ($result['success'] && $result['message_id']) {
+            $this->rememberOutboundMessageId($waInstance->id, $result['message_id']);
+        }
+
+        return $result['success'];
+    }
+
     /**
      * @param  string[]  $chunks
      */
