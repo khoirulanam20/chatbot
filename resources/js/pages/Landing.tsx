@@ -1,3 +1,5 @@
+import { ParticlesProvider } from '@tsparticles/react';
+import { initParticlesEngine } from '@/components/ui/particles-init';
 import { MarketingLayout } from '@/components/marketing/MarketingLayout';
 import { SeoHead } from '@/components/marketing/SeoHead';
 import { BrandTheme } from '@/components/marketing/BrandTheme';
@@ -45,19 +47,21 @@ export default function Landing({ contactWhatsApp, appUrl, brand }: LandingProps
     };
 
     return (
-        <MarketingLayout>
-            <BrandTheme brand={brand} />
-            <SeoHead title={seoCopy.title} description={seoCopy.description} url={appUrl} jsonLd={jsonLd} />
-            <HeroSection />
-            <ValuePillarsSection />
-            <ProblemSection />
-            <FeaturesSection />
-            <HowItWorksSection />
-            <ChannelsSection />
-            <HandoffSection />
-            <UseCasesSection />
-            <FaqSection />
-            <ContactSection contactWhatsApp={contactWhatsApp} />
-        </MarketingLayout>
+        <ParticlesProvider init={initParticlesEngine}>
+            <MarketingLayout>
+                <BrandTheme brand={brand} />
+                <SeoHead title={seoCopy.title} description={seoCopy.description} url={appUrl} jsonLd={jsonLd} />
+                <HeroSection />
+                <ValuePillarsSection />
+                <ProblemSection />
+                <FeaturesSection />
+                <HowItWorksSection />
+                <ChannelsSection />
+                <HandoffSection />
+                <UseCasesSection />
+                <FaqSection />
+                <ContactSection contactWhatsApp={contactWhatsApp} />
+            </MarketingLayout>
+        </ParticlesProvider>
     );
 }

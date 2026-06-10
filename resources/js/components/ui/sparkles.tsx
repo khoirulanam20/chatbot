@@ -1,9 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import React, { useId } from 'react';
-import Particles, { ParticlesProvider, useParticlesProvider } from '@tsparticles/react';
-import { loadSlim } from '@tsparticles/slim';
+import { useId } from 'react';
+import Particles, { useParticlesProvider } from '@tsparticles/react';
 import type { Container, ISourceOptions } from '@tsparticles/engine';
 
 type ParticlesProps = {
@@ -17,7 +16,7 @@ type ParticlesProps = {
     particleDensity?: number;
 };
 
-function SparklesInner({
+export function SparklesCore({
     id,
     className,
     background = 'transparent',
@@ -84,11 +83,3 @@ function SparklesInner({
         </div>
     );
 }
-
-export const SparklesCore = (props: ParticlesProps) => {
-    return (
-        <ParticlesProvider init={async (engine) => { await loadSlim(engine); }}>
-            <SparklesInner {...props} />
-        </ParticlesProvider>
-    );
-};
