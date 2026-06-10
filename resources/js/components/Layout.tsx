@@ -88,10 +88,10 @@ export function Layout({ children }: LayoutProps) {
                 <header className="sticky top-0 z-20 hidden items-center justify-end border-b border-hairline bg-canvas/95 px-8 py-3 backdrop-blur lg:flex">
                     <NotificationBell />
                 </header>
-                <AdminMobileHeader onMenuOpen={() => setMenuOpen(true)} />
+                <AdminMobileHeader />
                 <div className="p-4 lg:p-8">{children}</div>
             </main>
-            <AdminBottomNav />
+            <AdminBottomNav onMenuOpen={() => setMenuOpen(true)} />
             <AdminMobileMenu open={menuOpen} onOpenChange={setMenuOpen} />
         </div>
     );

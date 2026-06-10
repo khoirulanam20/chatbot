@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessDocumentJob;
 use App\Models\Chatbot;
 use App\Models\KnowledgeDocument;
+use App\Services\KnowledgeTemplateExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -18,6 +19,14 @@ class KnowledgeController extends Controller
         'faq'       => 'knowledge-base-faq.txt',
         'produk'    => 'knowledge-base-produk.txt',
         'kebijakan' => 'knowledge-base-kebijakan.txt',
+    ];
+
+    /** @var array<string, string> */
+    private const TEMPLATE_DOWNLOAD_NAMES = [
+        'umum'      => 'template-knowledge-base-umum.docx',
+        'faq'       => 'template-knowledge-base-faq.docx',
+        'produk'    => 'template-knowledge-base-produk.docx',
+        'kebijakan' => 'template-knowledge-base-kebijakan.docx',
     ];
 
     public function index(Request $request)
@@ -154,7 +163,7 @@ class KnowledgeController extends Controller
         ]);
     }
 
-    public function downloadTemplate(string $template)
+    public function downloadTemplate(string $template, KnowledgeTemplateExporter $exporter)
     {
         $filename = self::TEMPLATES[$template] ?? null;
 
@@ -168,9 +177,12 @@ class KnowledgeController extends Controller
             abort(404);
         }
 
-        return response()->download($path, $filename, [
-            'Content-Type' => 'text/plain; charset=UTF-8',
-        ]);
+        $downloadName = self::TEMPLATE_DOWNLOAD_NAMES[$template];
+        $docxPath = $exporter->toDocx($path);
+
+        return response()->download($docxPath, $downloadName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ])->deleteFileAfterSend(true);
     }
 
     public function downloadKnowledgeGuide()

@@ -113,13 +113,16 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
             <div className="space-y-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="font-display text-2xl font-semibold">Knowledge Base</h1>
-                        <p className="text-muted">Sumber pengetahuan chatbot dari file atau website</p>
+                        <h1 className="font-display text-xl font-semibold sm:text-2xl">Knowledge Base</h1>
+                        <p className="text-sm text-muted sm:text-base">
+                            Sumber pengetahuan chatbot dari file atau website
+                        </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
                         <Button
                             type="button"
                             variant={tab === 'upload' ? 'default' : 'outline'}
+                            className="w-full sm:w-auto"
                             onClick={() => setTab(tab === 'upload' ? '' : 'upload')}
                         >
                             Upload File
@@ -127,6 +130,7 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                         <Button
                             type="button"
                             variant={tab === 'url' ? 'default' : 'outline'}
+                            className="w-full sm:w-auto"
                             onClick={() => setTab(tab === 'url' ? '' : 'url')}
                         >
                             Dari Website
@@ -137,7 +141,7 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                 <select
                     value={chatbotId ?? ''}
                     onChange={(e) => filterChatbot(e.target.value)}
-                    className="h-10 rounded-md border border-hairline px-3 text-sm"
+                    className="h-10 w-full rounded-md border border-hairline px-3 text-sm sm:max-w-xs"
                 >
                     <option value="">Semua Chatbot</option>
                     {chatbots.map((b) => (
@@ -148,27 +152,26 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                 </select>
 
                 <div className="rounded-lg border border-hairline bg-surface-soft p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h2 className="text-sm font-semibold">Template & Panduan</h2>
                             <p className="mt-1 text-xs text-muted">
-                                Format dokumen dioptimalkan untuk RAG (chunk ~500 kata). Isi placeholder
-                                lalu upload sebagai TXT/DOCX.
+                                Format dokumen dioptimalkan untuk RAG (chunk ~500 kata). Unduh template
+                                DOCX, isi placeholder, lalu upload kembali.
                             </p>
                         </div>
-                        <Button variant="outline" size="sm" asChild>
-                            <a href="/admin/knowledge/guide" download>
+                        <Button variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" asChild>
+                            <a href="/admin/knowledge/guide">
                                 <Download className="mr-1.5 h-3.5 w-3.5" />
                                 Panduan lengkap
                             </a>
                         </Button>
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                         {KB_TEMPLATES.map((t) => (
                             <a
                                 key={t.slug}
                                 href={`/admin/knowledge/templates/${t.slug}`}
-                                download
                                 className="flex items-center gap-2 rounded-md border border-hairline bg-surface-card px-3 py-2 text-sm transition-colors hover:border-accent"
                             >
                                 <Download className="h-4 w-4 shrink-0 text-muted" />
@@ -182,7 +185,7 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                 </div>
 
                 {tab === 'upload' && (
-                    <form onSubmit={submitUpload} className="space-y-4 rounded-lg border border-hairline bg-surface-card p-6">
+                    <form onSubmit={submitUpload} className="space-y-4 rounded-lg border border-hairline bg-surface-card p-4 sm:p-6">
                         <h2 className="font-semibold">Upload Dokumen</h2>
                         <div>
                             <Label>Chatbot *</Label>
@@ -243,11 +246,11 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                                 placeholder="FAQ, Produk (pisahkan koma)"
                             />
                         </div>
-                        <div className="flex gap-2">
-                            <Button type="submit" disabled={uploadForm.processing}>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <Button type="submit" className="w-full sm:w-auto" disabled={uploadForm.processing}>
                                 {uploadForm.processing ? 'Mengupload...' : 'Upload & Proses'}
                             </Button>
-                            <Button type="button" variant="outline" onClick={() => setTab('')}>
+                            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setTab('')}>
                                 Batal
                             </Button>
                         </div>
@@ -255,7 +258,7 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                 )}
 
                 {tab === 'url' && (
-                    <form onSubmit={submitUrl} className="space-y-4 rounded-lg border border-hairline bg-surface-card p-6">
+                    <form onSubmit={submitUrl} className="space-y-4 rounded-lg border border-hairline bg-surface-card p-4 sm:p-6">
                         <h2 className="font-semibold">Tambah dari URL</h2>
                         <p className="text-sm text-muted">Scrape konten teks dari halaman website sebagai sumber knowledge.</p>
                         <div>
@@ -341,11 +344,11 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                                 placeholder="FAQ, Produk (pisahkan koma)"
                             />
                         </div>
-                        <div className="flex gap-2">
-                            <Button type="submit" disabled={urlForm.processing}>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <Button type="submit" className="w-full sm:w-auto" disabled={urlForm.processing}>
                                 {urlForm.processing ? 'Memproses...' : 'Tambah URL'}
                             </Button>
-                            <Button type="button" variant="outline" onClick={() => setTab('')}>
+                            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setTab('')}>
                                 Batal
                             </Button>
                         </div>
@@ -361,35 +364,37 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
                         documents.data.map((doc) => (
                             <div
                                 key={doc.id}
-                                className="flex items-center justify-between rounded-lg border border-hairline bg-surface-card p-4"
+                                className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface-card p-4 sm:flex-row sm:items-center sm:justify-between"
                             >
-                                <Link href={`/admin/knowledge/${doc.id}`} className="flex flex-1 items-center gap-3">
+                                <Link href={`/admin/knowledge/${doc.id}`} className="flex min-w-0 items-center gap-3">
                                     <FileText className="h-5 w-5 shrink-0 text-muted" />
                                     <div className="min-w-0">
                                         <p className="truncate font-medium">{doc.name}</p>
-                                        <p className="text-sm text-muted">
+                                        <p className="truncate text-sm text-muted">
                                             {doc.chatbot?.name} · {doc.type.toUpperCase()}
                                         </p>
                                     </div>
                                 </Link>
-                                <div className="flex shrink-0 items-center gap-2">
+                                <div className="flex items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
                                     <StatusBadge status={doc.status} />
-                                    <Button variant="ghost" size="sm" asChild>
-                                        <Link href={`/admin/knowledge/${doc.id}/reindex`} method="post" preserveScroll>
-                                            Reindex
-                                        </Link>
-                                    </Button>
-                                    <Button variant="ghost" size="icon" asChild>
-                                        <Link
-                                            href={`/admin/knowledge/${doc.id}`}
-                                            method="delete"
-                                            preserveScroll
-                                            onBefore={confirmDelete}
-                                            aria-label={`Hapus ${doc.name}`}
-                                        >
-                                            <Trash2 className="h-4 w-4 text-error" />
-                                        </Link>
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        <Button variant="ghost" size="sm" asChild>
+                                            <Link href={`/admin/knowledge/${doc.id}/reindex`} method="post" preserveScroll>
+                                                Reindex
+                                            </Link>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" asChild>
+                                            <Link
+                                                href={`/admin/knowledge/${doc.id}`}
+                                                method="delete"
+                                                preserveScroll
+                                                onBefore={confirmDelete}
+                                                aria-label={`Hapus ${doc.name}`}
+                                            >
+                                                <Trash2 className="h-4 w-4 text-error" />
+                                            </Link>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         ))

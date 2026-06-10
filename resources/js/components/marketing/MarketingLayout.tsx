@@ -71,7 +71,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                                 {link.label}
                             </Button>
                         ))}
-                        <Button size="sm" className="ml-2 ring-2 ring-primary/20 hover:ring-primary/40 transition-all" >
+                        <Button size="sm" className="ml-2 ring-2 ring-primary/20 transition-all hover:ring-primary/40" asChild>
                             <Link href="/login">Login</Link>
                         </Button>
                     </nav>
@@ -97,8 +97,8 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                                         {link.label}
                                     </Button>
                                 ))}
-                                <Button onClick={() => scrollTo('/login')} variant="outline" className="justify-start mt-2">
-                                    Login
+                                <Button variant="outline" className="mt-2 justify-start" asChild>
+                                    <Link href="/login">Login</Link>
                                 </Button>
                             </nav>
                         </SheetContent>

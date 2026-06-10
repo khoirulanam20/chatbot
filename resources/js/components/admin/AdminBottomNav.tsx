@@ -1,9 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
+import { Menu } from 'lucide-react';
 import { getPrimaryNav } from '@/config/adminNav';
 import type { PageProps } from '@/types';
 import { cn } from '@/lib/utils';
 
-export function AdminBottomNav() {
+interface Props {
+    onMenuOpen: () => void;
+}
+
+export function AdminBottomNav({ onMenuOpen }: Props) {
     const { url, props } = usePage<PageProps>();
     const user = props.auth.user;
     const items = getPrimaryNav(user?.role);
@@ -33,6 +38,15 @@ export function AdminBottomNav() {
                         </Link>
                     );
                 })}
+                <button
+                    type="button"
+                    onClick={onMenuOpen}
+                    className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-muted transition-colors hover:text-ink"
+                    aria-label="Buka menu lainnya"
+                >
+                    <Menu className="h-5 w-5 shrink-0" />
+                    <span className="truncate">Menu</span>
+                </button>
             </div>
         </nav>
     );
