@@ -15,7 +15,7 @@ export default function WaIndex({ instances }: Props) {
         <Layout>
             <Head title="WhatsApp" />
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="font-display text-2xl font-semibold">WhatsApp</h1>
                         <p className="text-muted">Kelola instance WhatsApp — scan QR langsung dari web</p>

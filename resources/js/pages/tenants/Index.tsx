@@ -14,7 +14,7 @@ export default function TenantsIndex({ tenants }: Props) {
         <Layout>
             <Head title="Tenants" />
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="font-display text-2xl font-semibold">Tenants</h1>
                         <p className="text-muted">Kelola organisasi multi-tenant</p>

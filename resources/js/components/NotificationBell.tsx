@@ -44,7 +44,7 @@ export function NotificationBell() {
             {open && (
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-                    <div className="absolute right-0 z-50 mt-2 w-80 rounded-lg border border-hairline bg-canvas shadow-lg">
+                    <div className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-hairline bg-canvas shadow-lg">
                         <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
                             <span className="font-semibold text-sm">Notifikasi</span>
                             <Link href="/admin/notifications" className="text-xs text-muted hover:text-ink" onClick={() => setOpen(false)}>

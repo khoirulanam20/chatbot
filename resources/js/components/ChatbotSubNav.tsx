@@ -13,12 +13,13 @@ const tabs = [
 
 export function ChatbotSubNav({ chatbotId, active }: Props) {
     return (
-        <nav className="flex gap-1 rounded-lg border border-hairline bg-surface-soft p-1">
+        <nav className="overflow-x-auto rounded-lg border border-hairline bg-surface-soft p-1">
+            <div className="flex min-w-max gap-1">
             {tabs.map((tab) => (
                 <Link
                     key={tab.key}
                     href={tab.href(chatbotId)}
-                    className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                    className={`shrink-0 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                         active === tab.key
                             ? 'bg-surface-card text-ink shadow-sm'
                             : 'text-muted hover:text-ink'
@@ -27,6 +28,7 @@ export function ChatbotSubNav({ chatbotId, active }: Props) {
                     {tab.label}
                 </Link>
             ))}
+            </div>
         </nav>
     );
 }

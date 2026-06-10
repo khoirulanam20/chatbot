@@ -1,19 +1,12 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import {
-    Bot,
-    Building2,
-    LayoutDashboard,
-    LogOut,
-    MessageSquare,
-    BookOpen,
-    Settings,
-    Smartphone,
-    Users,
-    Palette,
-} from 'lucide-react';
-import { ReactNode, useEffect } from 'react';
+import { LogOut } from 'lucide-react';
+import { ReactNode, useEffect, useState } from 'react';
+import { AdminBottomNav } from '@/components/admin/AdminBottomNav';
+import { AdminMobileHeader } from '@/components/admin/AdminMobileHeader';
+import { AdminMobileMenu } from '@/components/admin/AdminMobileMenu';
 import { FlashToast } from '@/components/FlashToast';
 import { NotificationBell } from '@/components/NotificationBell';
+import { getVisibleNav } from '@/config/adminNav';
 import type { PageProps } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -21,23 +14,12 @@ interface LayoutProps {
     children: ReactNode;
 }
 
-const navItems = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
-    { name: 'Percakapan', href: '/admin/conversations', icon: MessageSquare, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
-    { name: 'Chatbot', href: '/admin/chatbot', icon: Bot, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
-    { name: 'Knowledge Base', href: '/admin/knowledge', icon: BookOpen, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
-    { name: 'WhatsApp', href: '/admin/wa', icon: Smartphone, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
-    { name: 'Pengguna', href: '/admin/users', icon: Users, roles: ['super_admin', 'admin'] },
-    { name: 'Tenants', href: '/admin/tenants', icon: Building2, roles: ['super_admin'] },
-    { name: 'CMS Landing', href: '/admin/marketing', icon: Palette, roles: ['super_admin'] },
-    { name: 'Pengaturan AI', href: '/admin/settings', icon: Settings, roles: ['super_admin', 'admin', 'operator', 'viewer'] },
-];
-
 export function Layout({ children }: LayoutProps) {
     const { url, props } = usePage<PageProps>();
     const user = props.auth.user;
+    const [menuOpen, setMenuOpen] = useState(false);
 
-    const visibleNav = navItems.filter((item) => user && item.roles.includes(user.role));
+    const visibleNav = getVisibleNav(user?.role);
 
     useEffect(() => {
         if (!user) return;
@@ -50,7 +32,7 @@ export function Layout({ children }: LayoutProps) {
     return (
         <div className="min-h-screen bg-canvas">
             <FlashToast />
-            <aside className="fixed left-0 top-0 z-30 flex h-full w-64 flex-col bg-surface-dark text-on-dark">
+            <aside className="fixed left-0 top-0 z-30 hidden h-full w-64 flex-col bg-surface-dark text-on-dark lg:flex">
                 <div className="border-b border-surface-dark-elevated p-6">
                     <h1 className="font-display text-lg font-semibold tracking-tight">AI CS Chatbot</h1>
                     <p className="mt-1 truncate text-xs text-on-dark-soft">
@@ -102,12 +84,15 @@ export function Layout({ children }: LayoutProps) {
                     </div>
                 </div>
             </aside>
-            <main className="ml-64 min-h-screen">
-                <header className="sticky top-0 z-20 flex items-center justify-end border-b border-hairline bg-canvas/95 px-8 py-3 backdrop-blur">
+            <main className="min-h-screen pb-20 lg:ml-64 lg:pb-0">
+                <header className="sticky top-0 z-20 hidden items-center justify-end border-b border-hairline bg-canvas/95 px-8 py-3 backdrop-blur lg:flex">
                     <NotificationBell />
                 </header>
-                <div className="p-8">{children}</div>
+                <AdminMobileHeader onMenuOpen={() => setMenuOpen(true)} />
+                <div className="p-4 lg:p-8">{children}</div>
             </main>
+            <AdminBottomNav />
+            <AdminMobileMenu open={menuOpen} onOpenChange={setMenuOpen} />
         </div>
     );
 }

@@ -101,9 +101,9 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                 </Link>
 
                 <div className="grid gap-6 lg:grid-cols-3">
-                    <div className="flex flex-col rounded-lg border border-hairline bg-surface-card lg:col-span-2" style={{ height: 600 }}>
-                        <div className="flex items-center justify-between border-b border-hairline p-4">
-                            <div>
+                    <div className="flex min-h-[calc(100dvh-12rem)] flex-col rounded-lg border border-hairline bg-surface-card lg:col-span-2 lg:h-[600px]">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline p-4">
+                            <div className="min-w-0">
                                 <p className="font-semibold">
                                     {conversation.contact?.name || conversation.contact?.identifier || 'Anonymous'}
                                 </p>
@@ -111,7 +111,7 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                     {conversation.channel === 'whatsapp' ? 'WhatsApp' : 'Web'} · {conversation.chatbot?.name}
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {waitingForAdmin && (
                                     <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
                                         Menunggu admin

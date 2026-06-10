@@ -40,7 +40,7 @@ export default function UsersIndex({ users }: Props) {
         <Layout>
             <Head title="Pengguna" />
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="font-display text-2xl font-semibold">Pengguna</h1>
                         <p className="text-muted">Kelola akun admin dan operator</p>

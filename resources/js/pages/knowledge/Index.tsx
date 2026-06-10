@@ -111,7 +111,7 @@ export default function KnowledgeIndex({ documents, chatbots, chatbotId }: Props
         <Layout>
             <Head title="Knowledge Base" />
             <div className="space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="font-display text-2xl font-semibold">Knowledge Base</h1>
                         <p className="text-muted">Sumber pengetahuan chatbot dari file atau website</p>
