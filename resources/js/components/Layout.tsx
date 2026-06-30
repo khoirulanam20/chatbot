@@ -22,6 +22,14 @@ export function Layout({ children }: LayoutProps) {
     const visibleNav = getVisibleNav(user?.role);
 
     useEffect(() => {
+        document.body.classList.add('theme-light');
+
+        return () => {
+            document.body.classList.remove('theme-light');
+        };
+    }, []);
+
+    useEffect(() => {
         if (!user) return;
         const interval = setInterval(() => {
             router.reload({ only: ['notifications'] });

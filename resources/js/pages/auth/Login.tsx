@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useEffect } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,10 +11,13 @@ export default function Login() {
         remember: false as boolean,
     });
 
-    const submit = (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        post('/login');
-    };
+    useEffect(() => {
+        document.body.classList.add('theme-light');
+
+        return () => {
+            document.body.classList.remove('theme-light');
+        };
+    }, []);
 
     return (
         <>
@@ -37,7 +40,13 @@ export default function Login() {
                                 {errors.email}
                             </div>
                         )}
-                        <form onSubmit={submit} className="space-y-5">
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                post('/login');
+                            }}
+                            className="space-y-5"
+                        >
                             <div>
                                 <Label htmlFor="email">Email</Label>
                                 <Input

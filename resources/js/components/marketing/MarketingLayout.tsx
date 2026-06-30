@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Menu } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -24,13 +24,21 @@ interface MarketingLayoutProps {
 export function MarketingLayout({ children }: MarketingLayoutProps) {
     const scrollTo = useScrollTo();
 
+    useEffect(() => {
+        document.body.classList.add('theme-light');
+
+        return () => {
+            document.body.classList.remove('theme-light');
+        };
+    }, []);
+
     const floatingNavItems = navLinks.map((link) => ({
         name: link.label,
         link: link.href,
     }));
 
     return (
-        <div className="min-h-screen bg-canvas">
+        <div className="marketing-theme-light min-h-screen bg-canvas text-ink">
             <a
                 href="#main-content"
                 className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[6000] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-on-primary"
