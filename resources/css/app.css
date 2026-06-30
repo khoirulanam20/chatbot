@@ -46,4 +46,67 @@
         --animation-duration: 40s;
         --animation-direction: forwards;
     }
+
+    .admin-theme-light {
+        background:
+            radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28%),
+            radial-gradient(circle at top right, rgba(14, 165, 233, 0.1), transparent 24%),
+            linear-gradient(180deg, #f8fbff 0%, #f8fafc 34%, #f1f5f9 100%);
+        color: #0f172a;
+    }
+
+    .admin-theme-light .bg-canvas {
+        background-color: #f8fafc;
+    }
+
+    .admin-theme-light .bg-canvas\/95 {
+        background-color: rgb(248 250 252 / 0.92);
+    }
+
+    .admin-theme-light .bg-surface-soft {
+        background-color: #eef4fb;
+    }
+
+    .admin-theme-light .bg-surface-soft\/50 {
+        background-color: rgb(238 244 251 / 0.72);
+    }
+
+    .admin-theme-light .bg-surface-card,
+    .admin-theme-light .bg-surface-dark,
+    .admin-theme-light .bg-surface-dark-elevated {
+        background-color: #ffffff;
+    }
+
+    .admin-theme-light .bg-surface-strong {
+        background-color: #dfe9f5;
+    }
+
+    .admin-theme-light .border-hairline {
+        border-color: #d7e2ee;
+    }
+
+    .admin-theme-light .border-hairline-soft {
+        border-color: #e6edf5;
+    }
+
+    .admin-theme-light .text-ink,
+    .admin-theme-light .text-on-dark {
+        color: #0f172a;
+    }
+
+    .admin-theme-light .text-muted,
+    .admin-theme-light .text-on-dark-soft {
+        color: #64748b;
+    }
+
+    .admin-theme-light .shadow-admin {
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+    }
+
+    .admin-auth-shell {
+        background:
+            radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 30%),
+            radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.14), transparent 32%),
+            linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+    }
 }
