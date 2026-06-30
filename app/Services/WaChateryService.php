@@ -43,6 +43,16 @@ class WaChateryService
                 $payload['typingTime'] = $typingTime;
             }
 
+            // #region debug-point wa-send-stuck-chatery-send-request
+            Log::info('WA Chatery send request', [
+                'session_id'     => $sessionId,
+                'to'             => $to,
+                'normalized_to'  => $payload['chatId'],
+                'typing_time'    => $payload['typingTime'] ?? null,
+                'message_length' => mb_strlen($message),
+            ]);
+            // #endregion
+
             $response = Http::withHeaders([
                 'X-Api-Key'    => $apiKey,
                 'Content-Type' => 'application/json',
@@ -60,6 +70,15 @@ class WaChateryService
 
                 return ['success' => false, 'message_id' => null];
             }
+
+            // #region debug-point wa-send-stuck-chatery-send-response
+            Log::info('WA Chatery send success response', [
+                'session_id' => $sessionId,
+                'to'         => $to,
+                'status'     => $response->status(),
+                'body'       => $response->json(),
+            ]);
+            // #endregion
 
             $messageId = $response->json('data.id')
                 ?? $response->json('data.messageId')
@@ -284,6 +303,16 @@ class WaChateryService
                     'presence'  => 'composing',
                 ]);
 
+            // #region debug-point wa-send-stuck-typing-response
+            Log::info('WA Chatery typing response', [
+                'session_id' => $sessionId,
+                'to'         => $to,
+                'chat_id'    => $this->normalizeChatId($to),
+                'status'     => $response->status(),
+                'body'       => $response->json(),
+            ]);
+            // #endregion
+
             return $response->successful();
         } catch (\Exception $e) {
             Log::debug('WA Chatery typing failed', ['message' => $e->getMessage()]);
@@ -306,6 +335,16 @@ class WaChateryService
                     'chatId'    => $this->normalizeChatId($to),
                     'presence'  => 'paused',
                 ]);
+
+            // #region debug-point wa-send-stuck-paused-response
+            Log::info('WA Chatery paused response', [
+                'session_id' => $sessionId,
+                'to'         => $to,
+                'chat_id'    => $this->normalizeChatId($to),
+                'status'     => $response->status(),
+                'body'       => $response->json(),
+            ]);
+            // #endregion
 
             return $response->successful();
         } catch (\Exception $e) {

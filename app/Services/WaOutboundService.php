@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\WaInstance;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class WaOutboundService
 {
@@ -27,6 +28,18 @@ class WaOutboundService
             ? max(500, min(10000, (int) ($waInstance->typing_duration_ms ?? 2000)))
             : null;
 
+        // #region debug-point wa-send-stuck-sendtext-start
+        Log::info('WA outbound sendText start', [
+            'wa_instance_id'  => $waInstance->id,
+            'session_id'      => $sessionId,
+            'to'              => $to,
+            'normalized_to'   => WaChateryService::normalizePhone($to),
+            'typing_enabled'  => (bool) $waInstance->typing_enabled,
+            'typing_time'     => $typingTime,
+            'message_length'  => mb_strlen($message),
+        ]);
+        // #endregion
+
         $this->rememberOutbound($waInstance->id, $to, $message);
 
         $result = $this->chatery->sendMessage(
@@ -37,12 +50,30 @@ class WaOutboundService
             $typingTime
         );
 
+        // #region debug-point wa-send-stuck-sendtext-result
+        Log::info('WA outbound sendText result', [
+            'wa_instance_id' => $waInstance->id,
+            'session_id'     => $sessionId,
+            'to'             => $to,
+            'success'        => $result['success'],
+            'message_id'     => $result['message_id'],
+        ]);
+        // #endregion
+
         if ($result['success'] && $result['message_id']) {
             $this->rememberOutboundMessageId($waInstance->id, $result['message_id']);
         }
 
         if ($waInstance->typing_enabled) {
-            $this->chatery->clearTyping($apiKey, $to, $sessionId);
+            $cleared = $this->chatery->clearTyping($apiKey, $to, $sessionId);
+            // #region debug-point wa-send-stuck-clear-typing
+            Log::info('WA outbound clearTyping result', [
+                'wa_instance_id' => $waInstance->id,
+                'session_id'     => $sessionId,
+                'to'             => $to,
+                'cleared'        => $cleared,
+            ]);
+            // #endregion
         }
 
         return $result['success'];
