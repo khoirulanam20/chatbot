@@ -625,6 +625,7 @@
           if (tempEl) tempEl.setAttribute('data-msg-id', data.user_message_id);
         }
         if (data.message_id) lastMessageId = data.message_id;
+        if (data.silent) return;
         var chunks = data.message_chunks;
         if (chunks && chunks.length > 1 && data.pacing_ms > 0) {
           appendChunksAnimated(chunks, data.message_id, data.pacing_ms);

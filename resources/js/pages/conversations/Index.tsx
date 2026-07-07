@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, MessageSquare, Search } from 'lucide-react';
+import { Calendar, Download, MessageSquare, Phone, Search, Globe } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { NavPillGroup, NavPillItem } from '@/components/NavPillGroup';
 import { Pagination } from '@/components/Pagination';
@@ -50,20 +50,25 @@ export default function ConversationsIndex({ conversations, filters }: Props) {
     return (
         <Layout>
             <Head title="Percakapan" />
-            <div className="space-y-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-4 lg:space-y-6">
+                {/* Header — stack on mobile */}
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="font-display text-2xl font-semibold text-ink">Percakapan</h1>
-                        <p className="mt-1 text-muted">Pantau dan kelola semua percakapan</p>
+                        <h1 className="text-xl font-semibold text-ink lg:text-2xl">Percakapan</h1>
+                        <p className="mt-0.5 text-sm text-muted">Pantau dan kelola semua percakapan</p>
                     </div>
-                    <a href={exportUrl} className="inline-flex items-center gap-2 rounded-md border border-hairline px-4 py-2 text-sm hover:bg-surface-soft">
+                    <a
+                        href={exportUrl}
+                        className="inline-flex items-center gap-2 self-start rounded-lg border border-hairline px-3 py-2 text-sm hover:bg-surface-soft"
+                    >
                         <Download className="h-4 w-4" />
-                        Export CSV
+                        <span className="hidden sm:inline">Export CSV</span>
                     </a>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4">
-                    <div className="relative max-w-md flex-1">
+                {/* Filters — wrap cleanly */}
+                <div className="flex flex-col gap-3">
+                    <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                         <Input
                             placeholder="Cari kontak..."
@@ -72,27 +77,30 @@ export default function ConversationsIndex({ conversations, filters }: Props) {
                             className="pl-10"
                         />
                     </div>
-                    <NavPillGroup>
-                        <NavPillItem active={!status} onClick={() => setStatus('')}>Semua</NavPillItem>
-                        <NavPillItem active={status === 'open'} onClick={() => setStatus('open')}>Aktif</NavPillItem>
-                        <NavPillItem active={status === 'handoff'} onClick={() => setStatus('handoff')}>Handoff</NavPillItem>
-                        <NavPillItem active={status === 'resolved'} onClick={() => setStatus('resolved')}>Selesai</NavPillItem>
-                    </NavPillGroup>
-                    <select
-                        value={channel}
-                        onChange={(e) => setChannel(e.target.value)}
-                        className="h-10 rounded-md border border-hairline px-3 text-sm"
-                    >
-                        <option value="">Semua Channel</option>
-                        <option value="web">Web</option>
-                        <option value="whatsapp">WhatsApp</option>
-                    </select>
+                    <div className="flex gap-2">
+                        <NavPillGroup>
+                            <NavPillItem active={!status} onClick={() => setStatus('')}>Semua</NavPillItem>
+                            <NavPillItem active={status === 'open'} onClick={() => setStatus('open')}>Aktif</NavPillItem>
+                            <NavPillItem active={status === 'handoff'} onClick={() => setStatus('handoff')}>Handoff</NavPillItem>
+                            <NavPillItem active={status === 'resolved'} onClick={() => setStatus('resolved')}>Selesai</NavPillItem>
+                        </NavPillGroup>
+                        <select
+                            value={channel}
+                            onChange={(e) => setChannel(e.target.value)}
+                            className="h-10 shrink-0 rounded-md border border-hairline px-3 text-sm"
+                        >
+                            <option value="">Semua Channel</option>
+                            <option value="web">Web</option>
+                            <option value="whatsapp">WhatsApp</option>
+                        </select>
+                    </div>
                 </div>
 
+                {/* List */}
                 {conversations.data.length === 0 ? (
-                    <div className="rounded-lg bg-surface-card p-12 text-center">
-                        <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted" />
-                        <p className="text-muted">Tidak ada percakapan</p>
+                    <div className="rounded-lg bg-surface-card p-10 text-center lg:p-12">
+                        <MessageSquare className="mx-auto mb-4 h-10 w-10 text-muted lg:h-12 lg:w-12" />
+                        <p className="text-sm text-muted lg:text-base">Tidak ada percakapan</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -102,14 +110,33 @@ export default function ConversationsIndex({ conversations, filters }: Props) {
                                 href={`/admin/conversations/${conv.id}`}
                                 className="block rounded-lg border border-hairline bg-surface-card p-4 transition-colors hover:bg-surface-soft"
                             >
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="font-medium text-ink">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium text-ink">
                                             {conv.contact?.name || conv.contact?.identifier || 'Anonymous'}
                                         </p>
-                                        <p className="text-sm text-muted">
-                                            {conv.chatbot?.name} · {conv.channel === 'whatsapp' ? 'WhatsApp' : 'Web'}
-                                        </p>
+                                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                                            <span className="inline-flex items-center gap-1">
+                                                {conv.channel === 'whatsapp' ? (
+                                                    <Phone className="h-3 w-3" />
+                                                ) : (
+                                                    <Globe className="h-3 w-3" />
+                                                )}
+                                                {conv.channel === 'whatsapp' ? 'WhatsApp' : 'Web'}
+                                            </span>
+                                            <span>{conv.chatbot?.name}</span>
+                                            {conv.last_message_at && (
+                                                <span className="inline-flex items-center gap-1">
+                                                    <Calendar className="h-3 w-3" />
+                                                    {new Date(conv.last_message_at).toLocaleDateString('id-ID', {
+                                                        day: 'numeric',
+                                                        month: 'short',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     <StatusBadge status={conv.status} />
                                 </div>

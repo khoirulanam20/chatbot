@@ -1,6 +1,6 @@
 import { ChangeEventHandler, FormEventHandler, useEffect, useRef, useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Bot, Headphones, ImagePlus, Send, User } from 'lucide-react';
+import { ArrowLeft, Bot, Headphones, ImagePlus, Info, Send, User } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,98 @@ interface Props {
     };
     messages: Message[];
     agents: AppUser[];
+}
+
+function Sidebar({ conversation, messages, agents, canTakeOver, inHandoff, isAdmin, assignForm, currentUserId }: {
+    conversation: Props['conversation'];
+    messages: Message[];
+    agents: AppUser[];
+    canTakeOver: boolean;
+    inHandoff: boolean;
+    isAdmin: boolean;
+    assignForm: ReturnType<typeof useForm>;
+    currentUserId: number | undefined;
+}) {
+    const waitingForAdmin = inHandoff && !conversation.assigned_agent_id;
+    const assignedToMe = conversation.assigned_agent_id === currentUserId;
+    const assignedToOther = inHandoff && conversation.assigned_agent_id && conversation.assigned_agent_id !== currentUserId;
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-lg border border-hairline bg-surface-card p-5">
+                <h3 className="mb-3 font-semibold">Info Kontak</h3>
+                <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                        <dt className="text-muted">Identifier</dt>
+                        <dd>{conversation.contact?.identifier ?? '-'}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                        <dt className="text-muted">Channel</dt>
+                        <dd>{conversation.channel}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                        <dt className="text-muted">Total Pesan</dt>
+                        <dd>{messages.length}</dd>
+                    </div>
+                    {inHandoff && conversation.idle_expires_at && (
+                        <div className="flex justify-between">
+                            <dt className="text-muted">AI aktif kembali</dt>
+                            <dd className="text-right text-xs">
+                                {new Date(conversation.idle_expires_at).toLocaleString('id-ID')}
+                            </dd>
+                        </div>
+                    )}
+                </dl>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {waitingForAdmin && (
+                        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">Menunggu admin</span>
+                    )}
+                    {inHandoff && assignedToMe && (
+                        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">Anda menangani</span>
+                    )}
+                    {assignedToOther && (
+                        <span className="rounded-full bg-muted/20 px-2 py-0.5 text-xs font-medium text-muted">Ditangani agen lain</span>
+                    )}
+                    <StatusBadge status={conversation.status} />
+                </div>
+            </div>
+            <div className="rounded-lg border border-hairline bg-surface-card p-5 space-y-2">
+                <h3 className="mb-3 font-semibold">Aksi</h3>
+                {canTakeOver && (
+                    <Button className="w-full" onClick={() => router.post(`/admin/conversations/${conversation.id}/take-over`)}>
+                        Ambil Alih
+                    </Button>
+                )}
+                <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => router.patch(`/admin/conversations/${conversation.id}/status`, { status: 'resolved' })}
+                >
+                    Tandai Selesai
+                </Button>
+                <form
+                    onSubmit={(e) => { e.preventDefault(); assignForm.post(`/admin/conversations/${conversation.id}/assign`); }}
+                    className="space-y-2"
+                >
+                    <Label>Assign ke Agen</Label>
+                    <select
+                        value={assignForm.data.agent_id}
+                        onChange={(e) => assignForm.setData('agent_id', e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-hairline px-3 text-sm"
+                    >
+                        <option value="">Pilih agen...</option>
+                        {agents.map((a) => (<option key={a.id} value={a.id}>{a.name}</option>))}
+                    </select>
+                    <Button type="submit" variant="outline" className="w-full" disabled={assignForm.processing}>Assign</Button>
+                </form>
+                {inHandoff && (
+                    <Button variant="outline" className="w-full" asChild>
+                        <Link href={`/admin/conversations/${conversation.id}/resume-ai`} method="post">Aktifkan AI Kembali</Link>
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default function ConversationsShow({ conversation, messages, agents }: Props) {
@@ -46,6 +138,8 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
 
     const canTakeOver =
         isOperator && inHandoff && (waitingForAdmin || (assignedToOther && isAdmin));
+
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -95,13 +189,156 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
     return (
         <Layout>
             <Head title="Detail Percakapan" />
-            <div className="space-y-6">
-                <Link href="/admin/conversations" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
+            <div className="space-y-3 lg:space-y-6">
+                <Link
+                    href="/admin/conversations"
+                    className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"
+                >
                     <ArrowLeft className="h-4 w-4" /> Kembali
                 </Link>
 
-                <div className="grid gap-6 lg:grid-cols-3">
-                    <div className="flex min-h-[calc(100dvh-12rem)] flex-col rounded-lg border border-hairline bg-surface-card lg:col-span-2 lg:h-[600px]">
+                {/* Mobile — fullscreen chat + sticky header + sidebar drawer */}
+                <div className="lg:hidden">
+                    <div className="fixed inset-0 top-0 z-40 flex flex-col bg-canvas">
+                        {/* Chat header */}
+                        <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold">
+                                    {conversation.contact?.name || conversation.contact?.identifier || 'Anonymous'}
+                                </p>
+                                <p className="text-[11px] text-muted">
+                                    {conversation.channel === 'whatsapp' ? 'WhatsApp' : 'Web'} ·{' '}
+                                    {conversation.chatbot?.name}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setSidebarOpen(true)}
+                                    className="rounded-lg p-2 text-muted hover:bg-surface-soft hover:text-ink"
+                                    aria-label="Info & Aksi"
+                                >
+                                    <Info className="h-5 w-5" />
+                                </button>
+                                <a
+                                    href="/admin/conversations"
+                                    className="rounded-lg p-2 text-muted hover:bg-surface-soft hover:text-ink"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                            {messages.map((msg) => (
+                                <div
+                                    key={msg.id}
+                                    className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}
+                                >
+                                    {msg.role !== 'user' && (
+                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-soft">
+                                            {getRoleIcon(msg.role)}
+                                        </div>
+                                    )}
+                                    <div
+                                        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                                            msg.role === 'user'
+                                                ? 'bg-primary text-on-primary'
+                                                : msg.role === 'agent'
+                                                  ? 'bg-warning/20 text-ink'
+                                                  : 'border border-hairline bg-canvas'
+                                        }`}
+                                    >
+                                        {msg.role === 'agent' && (
+                                            <p className="mb-1 text-[11px] font-medium text-warning">Agen</p>
+                                        )}
+                                        {msg.metadata?.type === 'image' && msg.metadata.url && (
+                                            <img
+                                                src={msg.metadata.url}
+                                                alt="Lampiran"
+                                                className="mb-2 max-h-36 rounded-md object-contain"
+                                            />
+                                        )}
+                                        {msg.content && msg.content !== '[Gambar]' && (
+                                            <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                                        )}
+                                        <p className="mt-0.5 text-[10px] opacity-60">{msg.created_at}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Sticky reply bar */}
+                        {canReply && (
+                            <div className="border-t border-hairline bg-surface-card p-3">
+                                <form onSubmit={submit} className="flex items-center gap-2">
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/gif,image/webp"
+                                        className="hidden"
+                                        onChange={onImageSelected}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0"
+                                        disabled={processing || uploadingImage}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        aria-label="Kirim gambar"
+                                    >
+                                        <ImagePlus className="h-4 w-4" />
+                                    </Button>
+                                    <Input
+                                        value={data.message}
+                                        onChange={(e) => setData('message', e.target.value)}
+                                        placeholder="Balas…"
+                                        className="h-9 flex-1 text-sm"
+                                    />
+                                    <Button type="submit" size="icon" disabled={processing || uploadingImage} className="h-9 w-9 shrink-0">
+                                        <Send className="h-4 w-4" />
+                                    </Button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Sidebar overlay */}
+                        {sidebarOpen && (
+                            <div className="absolute inset-0 z-50 flex">
+                                <div className="flex-1 bg-black/40" onClick={() => setSidebarOpen(false)} />
+                                <div className="w-80 max-w-[85vw] overflow-y-auto border-l border-hairline bg-surface-card p-5 shadow-lg">
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <h3 className="font-semibold">Info & Aksi</h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSidebarOpen(false)}
+                                            className="rounded-lg p-1 text-muted hover:text-ink"
+                                        >
+                                            <ArrowLeft className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                    <Sidebar
+                                        conversation={conversation}
+                                        messages={messages}
+                                        agents={agents}
+                                        canTakeOver={canTakeOver}
+                                        inHandoff={inHandoff}
+                                        isAdmin={isAdmin}
+                                        assignForm={assignForm}
+                                        currentUserId={currentUserId}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Desktop — grid layout (existing) */}
+                <div className="hidden lg:grid lg:gap-6 lg:grid-cols-3">
+                    <div className="flex flex-col rounded-lg border border-hairline bg-surface-card lg:col-span-2 lg:h-[600px]">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline p-4">
                             <div className="min-w-0">
                                 <p className="font-semibold">
@@ -113,19 +350,13 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 {waitingForAdmin && (
-                                    <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
-                                        Menunggu admin
-                                    </span>
+                                    <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">Menunggu admin</span>
                                 )}
                                 {inHandoff && assignedToMe && (
-                                    <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
-                                        Anda menangani
-                                    </span>
+                                    <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">Anda menangani</span>
                                 )}
                                 {assignedToOther && (
-                                    <span className="rounded-full bg-muted/20 px-2 py-0.5 text-xs font-medium text-muted">
-                                        Ditangani agen lain
-                                    </span>
+                                    <span className="rounded-full bg-muted/20 px-2 py-0.5 text-xs font-medium text-muted">Ditangani agen lain</span>
                                 )}
                                 <StatusBadge status={conversation.status} />
                             </div>
@@ -138,22 +369,12 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                                             {getRoleIcon(msg.role)}
                                         </div>
                                     )}
-                                    <div
-                                        className={`max-w-md rounded-lg px-4 py-2 text-sm ${
-                                            msg.role === 'user'
-                                                ? 'bg-primary text-on-primary'
-                                                : msg.role === 'agent'
-                                                  ? 'bg-warning/20 text-ink'
-                                                  : 'border border-hairline bg-canvas'
-                                        }`}
-                                    >
+                                    <div className={`max-w-md rounded-lg px-4 py-2 text-sm ${
+                                        msg.role === 'user' ? 'bg-primary text-on-primary' : msg.role === 'agent' ? 'bg-warning/20 text-ink' : 'border border-hairline bg-canvas'
+                                    }`}>
                                         {msg.role === 'agent' && <p className="mb-1 text-xs font-medium text-warning">Agen</p>}
                                         {msg.metadata?.type === 'image' && msg.metadata.url && (
-                                            <img
-                                                src={msg.metadata.url}
-                                                alt="Lampiran"
-                                                className="mb-2 max-h-48 rounded-md object-contain"
-                                            />
+                                            <img src={msg.metadata.url} alt="Lampiran" className="mb-2 max-h-48 rounded-md object-contain" />
                                         )}
                                         {msg.content && msg.content !== '[Gambar]' && (
                                             <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -166,115 +387,27 @@ export default function ConversationsShow({ conversation, messages, agents }: Pr
                         </div>
                         {canReply && (
                             <form onSubmit={submit} className="flex items-center gap-2 border-t border-hairline p-4">
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/gif,image/webp"
-                                    className="hidden"
-                                    onChange={onImageSelected}
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="shrink-0"
-                                    disabled={processing || uploadingImage}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    aria-label="Kirim gambar"
-                                >
+                                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={onImageSelected} />
+                                <Button type="button" variant="outline" size="icon" className="shrink-0" disabled={processing || uploadingImage} onClick={() => fileInputRef.current?.click()} aria-label="Kirim gambar">
                                     <ImagePlus className="h-4 w-4" />
                                 </Button>
-                                <Input
-                                    value={data.message}
-                                    onChange={(e) => setData('message', e.target.value)}
-                                    placeholder="Ketik balasan sebagai agen..."
-                                    className="flex-1"
-                                />
+                                <Input value={data.message} onChange={(e) => setData('message', e.target.value)} placeholder="Ketik balasan sebagai agen..." className="flex-1" />
                                 <Button type="submit" disabled={processing || uploadingImage} className="shrink-0">
                                     <Send className="h-4 w-4" />
                                 </Button>
                             </form>
                         )}
                     </div>
-
-                    <div className="space-y-4">
-                        <div className="rounded-lg border border-hairline bg-surface-card p-5">
-                            <h3 className="mb-3 font-semibold">Info Kontak</h3>
-                            <dl className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <dt className="text-muted">Identifier</dt>
-                                    <dd>{conversation.contact?.identifier ?? '-'}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt className="text-muted">Channel</dt>
-                                    <dd>{conversation.channel}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt className="text-muted">Total Pesan</dt>
-                                    <dd>{messages.length}</dd>
-                                </div>
-                                {inHandoff && conversation.idle_expires_at && (
-                                    <div className="flex justify-between">
-                                        <dt className="text-muted">AI aktif kembali</dt>
-                                        <dd className="text-right text-xs">
-                                            {new Date(conversation.idle_expires_at).toLocaleString('id-ID')}
-                                        </dd>
-                                    </div>
-                                )}
-                            </dl>
-                        </div>
-                        <div className="rounded-lg border border-hairline bg-surface-card p-5 space-y-2">
-                            <h3 className="mb-3 font-semibold">Aksi</h3>
-                            {canTakeOver && (
-                                <Button
-                                    className="w-full"
-                                    onClick={() =>
-                                        router.post(`/admin/conversations/${conversation.id}/take-over`)
-                                    }
-                                >
-                                    Ambil Alih
-                                </Button>
-                            )}
-                            <Button
-                                variant="secondary"
-                                className="w-full"
-                                onClick={() =>
-                                    router.patch(`/admin/conversations/${conversation.id}/status`, { status: 'resolved' })
-                                }
-                            >
-                                Tandai Selesai
-                            </Button>
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    assignForm.post(`/admin/conversations/${conversation.id}/assign`);
-                                }}
-                                className="space-y-2"
-                            >
-                                <Label>Assign ke Agen</Label>
-                                <select
-                                    value={assignForm.data.agent_id}
-                                    onChange={(e) => assignForm.setData('agent_id', e.target.value)}
-                                    className="flex h-10 w-full rounded-md border border-hairline px-3 text-sm"
-                                >
-                                    <option value="">Pilih agen...</option>
-                                    {agents.map((a) => (
-                                        <option key={a.id} value={a.id}>{a.name}</option>
-                                    ))}
-                                </select>
-                                <Button type="submit" variant="outline" className="w-full" disabled={assignForm.processing}>
-                                    Assign
-                                </Button>
-                            </form>
-                            {inHandoff && (
-                                <Button variant="outline" className="w-full" asChild>
-                                    <Link href={`/admin/conversations/${conversation.id}/resume-ai`} method="post">
-                                        Aktifkan AI Kembali
-                                    </Link>
-                                </Button>
-                            )}
-                        </div>
-                    </div>
+                    <Sidebar
+                        conversation={conversation}
+                        messages={messages}
+                        agents={agents}
+                        canTakeOver={canTakeOver}
+                        inHandoff={inHandoff}
+                        isAdmin={isAdmin}
+                        assignForm={assignForm}
+                        currentUserId={currentUserId}
+                    />
                 </div>
             </div>
         </Layout>
