@@ -89,7 +89,7 @@ class RAGService
                 $queryEmbedding = $sumopod->embed($caption);
                 $search         = $this->semanticSearch($chatbot, $queryEmbedding);
                 $chunks         = $search['chunks'];
-                $context        = $this->buildContext($chunks);
+                $context        = $this->buildContext($chunks, $search['scores']);
             }
 
             $history  = $this->getConversationHistory($conversation, $chatbot->max_context, excludeId: $userMsg->id);
@@ -172,7 +172,7 @@ class RAGService
             $chunks         = $search['chunks'];
             $channel        = $conversation->channel ?? 'web';
 
-            $context = $this->buildContext($chunks);
+            $context = $this->buildContext($chunks, $search['scores']);
             $history        = $this->getConversationHistory($conversation, $chatbot->max_context);
             $messages       = $this->buildMessages($chatbot, $history, $context, $userMessage, $channel);
             $humanizeActive = $chatbot->isHumanizeEnabledFor($channel);
@@ -238,7 +238,7 @@ class RAGService
     }
 
     /**
-     * @return array{chunks: array<int, KnowledgeChunk>, best_score: float}
+     * @return array{chunks: array<int, KnowledgeChunk>, scores: array<int, float>, best_score: float}
      */
     private function semanticSearch(Chatbot $chatbot, array $queryEmbedding, int $limit = 5): array
     {
@@ -248,7 +248,7 @@ class RAGService
             ->toArray();
 
         if (empty($documentIds)) {
-            return ['chunks' => [], 'best_score' => 0.0];
+            return ['chunks' => [], 'scores' => [], 'best_score' => 0.0];
         }
 
         $chunks = KnowledgeChunk::with('document')
@@ -257,7 +257,7 @@ class RAGService
             ->get();
 
         if ($chunks->isEmpty()) {
-            return ['chunks' => [], 'best_score' => 0.0];
+            return ['chunks' => [], 'scores' => [], 'best_score' => 0.0];
         }
 
         $scored = $chunks->map(function ($chunk) use ($queryEmbedding) {
@@ -268,16 +268,13 @@ class RAGService
         })->sortByDesc('score');
 
         $bestScore = (float) ($scored->first()['score'] ?? 0.0);
-        $threshold = $chatbot->getRagMinSimilarity();
+        $topN      = $scored->take($limit);
 
-        $relevant = $scored
-            ->filter(fn ($item) => $item['score'] >= $threshold)
-            ->take($limit)
-            ->pluck('chunk')
-            ->values()
-            ->all();
-
-        return ['chunks' => $relevant, 'best_score' => $bestScore];
+        return [
+            'chunks'     => $topN->pluck('chunk')->values()->all(),
+            'scores'     => $topN->pluck('score')->values()->all(),
+            'best_score' => $bestScore,
+        ];
     }
 
     private function cosineSimilarity(array $a, array $b): float
@@ -300,7 +297,7 @@ class RAGService
         return $denom > 0 ? $dot / $denom : 0.0;
     }
 
-    private function buildContext(array $chunks): string
+    private function buildContext(array $chunks, array $scores = []): string
     {
         if (empty($chunks)) {
             return '';
@@ -308,8 +305,9 @@ class RAGService
 
         $context = "Gunakan informasi berikut sebagai referensi untuk menjawab:\n\n";
         foreach ($chunks as $i => $chunk) {
-            $docName  = $chunk->document->name ?? 'Dokumen';
-            $context .= "--- Sumber {$docName} ---\n{$chunk->content}\n\n";
+            $docName = $chunk->document->name ?? 'Dokumen';
+            $label   = isset($scores[$i]) ? sprintf(' [relevansi: %.0f%%]', $scores[$i] * 100) : '';
+            $context .= "--- Sumber {$docName}{$label} ---\n{$chunk->content}\n\n";
         }
 
         return $context;
@@ -382,13 +380,16 @@ class RAGService
         if ($context !== '') {
             if ($knowledgeOnly) {
                 return $context . "\n\n"
-                    . 'PENTING: Jawab HANYA berdasarkan referensi di atas. '
-                    . 'Jangan menggunakan pengetahuan umum atau informasi di luar referensi. '
-                    . 'Jika pertanyaan tidak tercakup referensi, tolak dengan sopan dan jelaskan bahwa topik tersebut di luar konteks.';
+                    . 'Jawab berdasarkan referensi di atas. Setiap sumber memiliki label [relevansi: N%] yang menunjukkan seberapa cocok informasinya dengan pertanyaan. '
+                    . 'Untuk pertanyaan yang tidak membutuhkan informasi factual (mis. greeting, ucapan terima kasih, tanya-tanya umum), jawab dengan sopan dan ramah. '
+                    . 'Untuk pertanyaan bisnis yang membutuhkan informasi factual, gunakan referensi yang paling relevan. '
+                    . 'Jika referensi tidak mencukupi, jawab secara umum sesuai konteks bisnis. '
+                    . 'Tolak hanya topik yang benar-benar di luar konteks bisnis (mis. politik, hiburan, topik umum yang tidak terkait).';
             }
 
             return $context . "\n\n"
                 . 'Prioritaskan informasi dari referensi di atas untuk menjawab. '
+                . 'Setiap sumber memiliki label [relevansi: N%] yang menunjukkan seberapa cocok informasinya dengan pertanyaan. '
                 . 'Jika pertanyaan tidak tercakup referensi tapi masih relevan dengan konteks bisnis '
                 . '(mis. greeting, tanya harga, tanya stok, tanya cara order), jawab dengan sopan dan arahkan ke informasi yang tersedia. '
                 . 'Tolak hanya topik yang benar-benar di luar konteks bisnis (mis. politik, hiburan, topik umum yang tidak terkait).';
@@ -396,9 +397,10 @@ class RAGService
 
         if ($chatbot->hasIndexedKnowledge()) {
             if ($knowledgeOnly) {
-                return 'PENTING: Chatbot ini hanya boleh menjawab berdasarkan knowledge base. '
-                    . 'Jangan menjawab pertanyaan di luar konteks yang tersedia. '
-                    . 'Jika tidak ada informasi relevan, tolak dengan sopan.';
+                return 'Prioritaskan jawaban dari knowledge base untuk pertanyaan bisnis. '
+                    . 'Untuk pertanyaan yang tidak membutuhkan informasi factual (greeting, ucapan terima kasih, tanya-tanya umum), jawab dengan sopan dan ramah. '
+                    . 'Jika pertanyaan membutuhkan informasi factual tapi tidak ada di knowledge base, jawab secara umum sesuai konteks bisnis jika memungkinkan. '
+                    . 'Tolak hanya topik yang benar-benar di luar konteks bisnis.';
             }
 
             return 'Prioritaskan jawaban dari knowledge base jika ada informasi relevan. '
