@@ -77,7 +77,7 @@ class RAGServiceContextTest extends TestCase
         return compact('chatbot', 'conversation');
     }
 
-    public function test_rejects_out_of_context_question_without_calling_llm(): void
+    public function test_llm_handles_out_of_context_question(): void
     {
         $kbEmbedding = [1.0, 0.0, 0.0];
         $queryEmbedding = [0.0, 1.0, 0.0];
@@ -87,7 +87,10 @@ class RAGServiceContextTest extends TestCase
         $sumopod = Mockery::mock(SumopodService::class);
         $sumopod->shouldReceive('withTenantSettings')->andReturnSelf();
         $sumopod->shouldReceive('embed')->once()->andReturn($queryEmbedding);
-        $sumopod->shouldNotReceive('chatOnce');
+        $sumopod->shouldReceive('chatOnce')->once()->andReturn([
+            'content' => 'Maaf, saya tidak dapat membantu dengan permintaan itu.',
+            'tokens'  => 15,
+        ]);
         $this->app->instance(SumopodService::class, $sumopod);
 
         $result = app(RAGService::class)->processMessage(
@@ -95,8 +98,8 @@ class RAGServiceContextTest extends TestCase
             'buatkan artikel tentang prabowo'
         );
 
-        $this->assertTrue($result['out_of_context'] ?? false);
-        $this->assertSame('Maaf, saya tidak dapat membantu dengan permintaan itu.', $result['content']);
+        $this->assertFalse($result['out_of_context'] ?? false);
+        $this->assertStringContainsString('tidak dapat membantu', $result['content']);
         $this->assertDatabaseHas('messages', [
             'conversation_id' => $conversation->id,
             'role'            => 'assistant',
@@ -125,7 +128,7 @@ class RAGServiceContextTest extends TestCase
         $this->assertStringContainsString('Halo', $result['content']);
     }
 
-    public function test_rejects_without_indexed_knowledge_when_knowledge_only_default(): void
+    public function test_llm_handles_question_without_indexed_knowledge_when_knowledge_only_default(): void
     {
         $tenant = $this->createTenant();
         $chatbot = $this->createChatbot($tenant);
@@ -150,7 +153,10 @@ class RAGServiceContextTest extends TestCase
         $sumopod = Mockery::mock(SumopodService::class);
         $sumopod->shouldReceive('withTenantSettings')->andReturnSelf();
         $sumopod->shouldReceive('embed')->once()->andReturn([1.0, 0.0, 0.0]);
-        $sumopod->shouldNotReceive('chatOnce');
+        $sumopod->shouldReceive('chatOnce')->once()->andReturn([
+            'content' => 'Maaf, saya tidak dapat membantu dengan permintaan itu.',
+            'tokens'  => 15,
+        ]);
         $this->app->instance(SumopodService::class, $sumopod);
 
         $result = app(RAGService::class)->processMessage(
@@ -158,8 +164,75 @@ class RAGServiceContextTest extends TestCase
             'buatkan artikel tentang prabowo'
         );
 
-        $this->assertTrue($result['out_of_context'] ?? false);
-        $this->assertSame('Maaf, saya tidak dapat membantu dengan permintaan itu.', $result['content']);
+        $this->assertFalse($result['out_of_context'] ?? false);
+        $this->assertStringContainsString('tidak dapat membantu', $result['content']);
+    }
+
+    public function test_allows_question_when_knowledge_only_is_off(): void
+    {
+        $tenant = $this->createTenant();
+        $chatbot = $this->createChatbot($tenant);
+        $chatbot->update([
+            'settings' => array_merge($chatbot->settings ?? [], [
+                'knowledge_only' => false,
+            ]),
+        ]);
+
+        $contact = Contact::withoutGlobalScopes()->create([
+            'tenant_id'  => $tenant->id,
+            'identifier' => 'web_ko_off',
+            'channel'    => 'web',
+        ]);
+
+        $conversation = Conversation::create([
+            'session_id'      => 'ko-off-session',
+            'chatbot_id'      => $chatbot->id,
+            'contact_id'      => $contact->id,
+            'channel'         => 'web',
+            'status'          => 'open',
+            'is_ai_active'    => true,
+            'last_message_at' => now(),
+        ]);
+        $conversation->load('chatbot');
+
+        $sumopod = Mockery::mock(SumopodService::class);
+        $sumopod->shouldReceive('withTenantSettings')->andReturnSelf();
+        $sumopod->shouldReceive('embed')->once()->andReturn([1.0, 0.0, 0.0]);
+        $sumopod->shouldReceive('chatOnce')->once()->andReturn([
+            'content' => 'Halo! Terima kasih sudah menghubungi kami.',
+            'tokens'  => 15,
+        ]);
+        $this->app->instance(SumopodService::class, $sumopod);
+
+        $result = app(RAGService::class)->processMessage(
+            $conversation,
+            'bisa info harga produk?'
+        );
+
+        $this->assertFalse($result['out_of_context'] ?? false);
+        $this->assertStringContainsString('menghubungi', $result['content']);
+    }
+
+    public function test_allows_conversational_opener_even_without_relevant_context(): void
+    {
+        $kbEmbedding = [1.0, 0.0, 0.0];
+        $queryEmbedding = [0.0, 1.0, 0.0];
+
+        ['conversation' => $conversation] = $this->createConversationWithKnowledge($kbEmbedding);
+
+        $sumopod = Mockery::mock(SumopodService::class);
+        $sumopod->shouldReceive('withTenantSettings')->andReturnSelf();
+        $sumopod->shouldReceive('embed')->once()->andReturn($queryEmbedding);
+        $sumopod->shouldReceive('chatOnce')->once()->andReturn([
+            'content' => 'Halo! Ada yang bisa saya bantu?',
+            'tokens'  => 10,
+        ]);
+        $this->app->instance(SumopodService::class, $sumopod);
+
+        $result = app(RAGService::class)->processMessage($conversation, 'mau tanya kak');
+
+        $this->assertFalse($result['out_of_context'] ?? false);
+        $this->assertStringContainsString('bantu', $result['content']);
     }
 
     public function test_allows_question_when_similarity_is_high_enough(): void

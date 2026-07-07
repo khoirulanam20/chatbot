@@ -89,12 +89,7 @@ class RAGService
                 $queryEmbedding = $sumopod->embed($caption);
                 $search         = $this->semanticSearch($chatbot, $queryEmbedding);
                 $chunks         = $search['chunks'];
-
-                if ($this->shouldRejectAsOutOfContext($chatbot, $caption, $search)) {
-                    return $this->respondOutOfContext($conversation, $chatbot, $userMsg->id, $channel);
-                }
-
-                $context = $this->buildContext($chunks);
+                $context        = $this->buildContext($chunks);
             }
 
             $history  = $this->getConversationHistory($conversation, $chatbot->max_context, excludeId: $userMsg->id);
@@ -176,10 +171,6 @@ class RAGService
             $search         = $this->semanticSearch($chatbot, $queryEmbedding);
             $chunks         = $search['chunks'];
             $channel        = $conversation->channel ?? 'web';
-
-            if ($this->shouldRejectAsOutOfContext($chatbot, $userMessage, $search)) {
-                return $this->respondOutOfContext($conversation, $chatbot, $userMsg->id, $channel);
-            }
 
             $context = $this->buildContext($chunks);
             $history        = $this->getConversationHistory($conversation, $chatbot->max_context);
@@ -289,57 +280,6 @@ class RAGService
         return ['chunks' => $relevant, 'best_score' => $bestScore];
     }
 
-    /**
-     * @param  array{chunks: array<int, KnowledgeChunk>, best_score: float}  $search
-     */
-    private function shouldRejectAsOutOfContext(Chatbot $chatbot, string $userMessage, array $search): bool
-    {
-        if ($this->isConversationalMessage($userMessage)) {
-            return false;
-        }
-
-        if (! $chatbot->isKnowledgeOnlyEnabled()) {
-            if (! $chatbot->hasIndexedKnowledge()) {
-                return false;
-            }
-        }
-
-        $bestScore = $search['best_score'];
-        $chunks    = $search['chunks'];
-
-        if (empty($chunks)) {
-            return true;
-        }
-
-        return $bestScore < $chatbot->getRagMinSimilarity();
-    }
-
-    private function isConversationalMessage(string $message): bool
-    {
-        $normalized = mb_strtolower(trim($message));
-        $normalized = preg_replace('/[^\p{L}\p{N}\s]/u', '', $normalized) ?? '';
-        $normalized = trim(preg_replace('/\s+/u', ' ', $normalized) ?? '');
-
-        if ($normalized === '') {
-            return true;
-        }
-
-        $greetingPatterns = [
-            '/^(halo|hai|hi|hello|hey|pagi|siang|sore|malam)$/u',
-            '/^selamat\s+(pagi|siang|sore|malam|datang)$/u',
-            '/^(terima kasih|makasih|thanks|thank you|ok|oke|okay)$/u',
-            '/^(test|ping)$/u',
-        ];
-
-        foreach ($greetingPatterns as $pattern) {
-            if (preg_match($pattern, $normalized)) {
-                return true;
-            }
-        }
-
-        return mb_strlen($normalized) <= 12 && preg_match('/^(halo|hai|hi|hello)\b/u', $normalized);
-    }
-
     private function cosineSimilarity(array $a, array $b): float
     {
         if (empty($a) || empty($b) || count($a) !== count($b)) {
@@ -437,40 +377,39 @@ class RAGService
 
     private function composeContextPolicy(Chatbot $chatbot, string $context): string
     {
+        $knowledgeOnly = $chatbot->isKnowledgeOnlyEnabled();
+
         if ($context !== '') {
+            if ($knowledgeOnly) {
+                return $context . "\n\n"
+                    . 'PENTING: Jawab HANYA berdasarkan referensi di atas. '
+                    . 'Jangan menggunakan pengetahuan umum atau informasi di luar referensi. '
+                    . 'Jika pertanyaan tidak tercakup referensi, tolak dengan sopan dan jelaskan bahwa topik tersebut di luar konteks.';
+            }
+
             return $context . "\n\n"
-                . 'PENTING: Jawab HANYA berdasarkan referensi di atas. '
-                . 'Jangan menggunakan pengetahuan umum atau informasi di luar referensi. '
-                . 'Jika pertanyaan tidak tercakup referensi, tolak dengan sopan dan jelaskan bahwa topik tersebut di luar konteks.';
+                . 'Prioritaskan informasi dari referensi di atas untuk menjawab. '
+                . 'Jika pertanyaan tidak tercakup referensi tapi masih relevan dengan konteks bisnis '
+                . '(mis. greeting, tanya harga, tanya stok, tanya cara order), jawab dengan sopan dan arahkan ke informasi yang tersedia. '
+                . 'Tolak hanya topik yang benar-benar di luar konteks bisnis (mis. politik, hiburan, topik umum yang tidak terkait).';
         }
 
         if ($chatbot->hasIndexedKnowledge()) {
-            return 'PENTING: Chatbot ini hanya boleh menjawab berdasarkan knowledge base. '
-                . 'Jangan menjawab pertanyaan di luar konteks yang tersedia. '
-                . 'Jika tidak ada informasi relevan, tolak dengan sopan.';
+            if ($knowledgeOnly) {
+                return 'PENTING: Chatbot ini hanya boleh menjawab berdasarkan knowledge base. '
+                    . 'Jangan menjawab pertanyaan di luar konteks yang tersedia. '
+                    . 'Jika tidak ada informasi relevan, tolak dengan sopan.';
+            }
+
+            return 'Prioritaskan jawaban dari knowledge base jika ada informasi relevan. '
+                . 'Jika tidak ada, kamu boleh menjawab pertanyaan yang relevan dengan konteks bisnis '
+                . '(greeting, tanya harga, tanya stok, tanya cara order, dll). '
+                . 'Tolak hanya topik yang benar-benar di luar konteks bisnis.';
         }
 
-        return 'Jika tidak ada informasi yang relevan, katakan dengan jujur bahwa kamu tidak tahu.';
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function respondOutOfContext(
-        Conversation $conversation,
-        Chatbot $chatbot,
-        int $userMessageId,
-        string $channel
-    ): array {
-        $reply = $chatbot->getOutOfContextMessage();
-        $this->saveMessage($conversation, 'assistant', $reply);
-        $conversation->update(['last_message_at' => now()]);
-
-        return $this->wrapResponse($reply, $chatbot, $channel, [
-            'sources'         => [],
-            'user_message_id' => $userMessageId,
-            'out_of_context'  => true,
-        ]);
+        return 'Kamu adalah asisten layanan pelanggan. '
+            . 'Jawab pertanyaan yang relevan dengan konteks bisnis. '
+            . 'Tolak hanya topik yang benar-benar di luar konteks bisnis.';
     }
 
     private function getConversationHistory(
